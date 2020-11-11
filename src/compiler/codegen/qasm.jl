@@ -206,7 +206,7 @@ function codegen(target::TargetQASMTopLevel, ci::CodeInfo)
 
     # allocate registers
     for (k, locs) in st.regmap.regs_to_locs
-        push!(prog, QASM.Parse.RegDecl(
+        push!(prog, QASM.RegDecl(
             Token{:reserved}("qreg"),
             # we probably want to have a better strategy
             # to avoid potential name conflicts
@@ -216,7 +216,7 @@ function codegen(target::TargetQASMTopLevel, ci::CodeInfo)
     end
 
     for (_, (name, size)) in st.regmap.cbits
-        pushfirst!(prog, QASM.Parse.RegDecl(
+        pushfirst!(prog, QASM.RegDecl(
             Token{:reserved}("creg"),
             Token{:id}(name),
             Token{:int}(string(size))
@@ -241,7 +241,7 @@ function codegen(target::TargetQASMTopLevel, ci::CodeInfo)
         end
         isnothing(inst) || push!(prog, inst)
     end
-    return QASM.Parse.MainProgram(v"2.0", prog)
+    return QASM.MainProgram(v"2.0", prog)
 end
 
 function gate_name(spec)
@@ -290,7 +290,7 @@ function codegen(target::TargetQASMGate, ci::CodeInfo)
     st = QASMCodeGenState(target, ci)
     qargs = Any[Token{:id}(qreg_name(k)) for (k, _) in st.regmap.regs_to_locs]
     cargs = Any[Token{:id}(cname) for cname in st.carg_names]
-    decl = QASM.Parse.GateDecl(Token{:id}(st.name), cargs, qargs)
+    decl = QASM.GateDecl(Token{:id}(st.name), cargs, qargs)
 
     prog = Any[]
 
@@ -312,7 +312,7 @@ function codegen(target::TargetQASMGate, ci::CodeInfo)
         end
         isnothing(inst) || push!(prog, inst)
     end
-    return QASM.Parse.Gate(decl, prog)
+    return QASM.Gate(decl, prog)
 end
 
 function _qasm_name(x)
@@ -342,9 +342,9 @@ end
 function index_qreg(r::Int, addr::Int, regmap::RegMap)
     # do not index qreg if it only has one qubit
     if length(regmap.regs_to_locs[r]) == 1 && addr == 0
-        return QASM.Parse.Bit(qreg_name(r))
+        return QASM.Bit(qreg_name(r))
     else
-        return QASM.Parse.Bit(qreg_name(r), addr)
+        return QASM.Bit(qreg_name(r), addr)
     end
 end
 
@@ -375,7 +375,7 @@ function codegen_gate(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
         push!(qargs, index_qreg(r, addr, st.regmap))
     end
 
-    return QASM.Parse.Instruction(
+    return QASM.Instruction(
         Token{:id}(_qasm_name(name)),
         cargs, qargs
     )
@@ -463,7 +463,7 @@ function codegen_exp(target::TargetQASM, ci::CodeInfo, @nospecialize(stmt), st::
     end
 
     if length(args) == 1
-        return QASM.Parse.FnExp(fn_name, codegen_exp(target, ci, args[1], st))
+        return QASM.FnExp(fn_name, codegen_exp(target, ci, args[1], st))
     elseif length(args) == 2 # binop
         if (fn === +) || (fn === Core.Intrinsics.add_float) || (fn === Core.Intrinsics.add_int)
             token = Token{:reserved}("+")
@@ -500,13 +500,13 @@ function codegen_ctrl(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
     end
 
     all(ctrl.configs) || error("inverse ctrl is not supported in QASM backend yet")
-    if gate === Gate.X && length(ctrl) == 1 && length(locs) == 1
+    if gate === Intrinsics.X && length(ctrl) == 1 && length(locs) == 1
         qargs = Any[index_qreg(ctrl, st.regmap)..., index_qreg(locs, st.regmap)...]
-        return QASM.Parse.Instruction(
+        return QASM.Instruction(
             Token{:id}("CX"),
             Any[], qargs
         )
-    elseif gate === Gate.X && length(ctrl) == 2 && length(locs) == 1
+    elseif gate === Intrinsics.X && length(ctrl) == 2 && length(locs) == 1
         error(
             "ccx is not valid intrinsic QASM instruction. posssible fix:\n",
             "1. include a qasm stdlib e.g qelib<version>.inc and use ccx gate from it\n",
@@ -514,7 +514,7 @@ function codegen_ctrl(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
         )
         # ctrl.configs[1] || error("inverse ctrl is not supported in QASM backend yet")
         # qargs = Any[index_qreg(ctrl, st.regmap)..., index_qreg(locs, st.regmap)...]
-        # return QASM.Parse.Instruction(
+        # return QASM.Instruction(
         #     Token{:id}("ccx"),
         #     Any[], qargs
         # )
@@ -538,13 +538,13 @@ function codegen_measure(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
 
     if length(locs) == 1
         qarg = index_qreg(r, addr, st.regmap)
-        return QASM.Parse.Measure(qarg, QASM.Parse.Bit(cname, 0))
+        return QASM.Measure(qarg, QASM.Bit(cname, 0))
     else
         # by construction the registers are the same
         # and is exactly of size length(locs)
-        return QASM.Parse.Measure(
-            QASM.Parse.Bit(qreg_name(r)),
-            QASM.Parse.Bit(cname, length(locs))
+        return QASM.Measure(
+            QASM.Bit(qreg_name(r)),
+            QASM.Bit(cname, length(locs))
         )
     end
 end
@@ -565,14 +565,14 @@ function codegen_barrier(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
         # do not index qreg explicitly if barrier size
         # is the same with register size
         if length(st.regmap.regs_to_locs[r]) == length(addrs)
-            push!(qargs, QASM.Parse.Bit(qreg_name(r)))
+            push!(qargs, QASM.Bit(qreg_name(r)))
         else
             for addr in addrs
-                push!(qargs, QASM.Parse.Bit(qreg_name(r), addr))
+                push!(qargs, QASM.Bit(qreg_name(r), addr))
             end
         end
     end
-    return QASM.Parse.Barrier(qargs)
+    return QASM.Barrier(qargs)
 end
 
 function codegen_ifnot(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
@@ -616,7 +616,7 @@ function codegen_ifnot(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
     st.pc = pc′
     st.stmt = stmt′
     body = codegen_stmt(target, ci, st)
-    return QASM.Parse.IfStmt(Token{:id}(cname), Token{:int}(string(right)), body)
+    return QASM.IfStmt(Token{:id}(cname), Token{:int}(string(right)), body)
 end
 
 function validate(target::TargetQASM, ci::CodeInfo)

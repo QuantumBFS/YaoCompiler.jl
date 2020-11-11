@@ -4,7 +4,7 @@ export @device, @gate, @ctrl, @measure, @barrier
 # reflections
 export @code_yao, @code_qasm
 export gate_count
-export Gate
+export Intrinsics
 
 using LinearAlgebra
 

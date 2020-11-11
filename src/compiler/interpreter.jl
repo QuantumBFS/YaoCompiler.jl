@@ -79,8 +79,8 @@ function abstract_call_quantum(interp::AbstractInterpreter, @nospecialize(f),
     if f === Semantic.measure
         return Core.Compiler.CallMeta(Int, nothing)
     elseif f === Semantic.gate || f === Semantic.ctrl
-        gt = argtypes[2]
-        if gt isa Const && gt.val isa IntrinsicSpec
+        gt = widenconst(argtypes[2])
+        if gt <: IntrinsicSpec
             callinfo = CallMeta(Const(nothing), nothing)
         else
             callinfo = Core.Compiler.abstract_call_known(interp, f, fargs, argtypes, sv, max_methods)

@@ -29,7 +29,7 @@ function intrinsic_m(ex::Expr)
     end
 end
 
-module Gate
+module Intrinsics
 
 using ..YaoCompiler: @intrinsic
 export X, Y, Z, H, S, T, shift, Rx, Ry, Rz
