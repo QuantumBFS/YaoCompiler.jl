@@ -21,13 +21,13 @@ using YaoAPI
 using BitBasis
 using ZXCalculus
 
-using Core: CodeInfo, SSAValue, Const, Slot, GotoIfNot, GotoNode, SlotNumber, Argument, ReturnNode
-using Core.Compiler: InferenceParams, InferenceResult, OptimizationParams, OptimizationState,
+using Core: CodeInfo, SSAValue, Const, PartialStruct, Slot, GotoIfNot, GotoNode, SlotNumber, Argument, ReturnNode
+using Core.Compiler: InferenceParams, InferenceResult, OptimizationParams, OptimizationState, Bottom,
     AbstractInterpreter, VarTable, InferenceState, CFG, NewSSAValue, IRCode,
-    InstructionStream
+    InstructionStream, CallMeta
 using Core.Compiler: get_world_counter, get_inference_cache, may_optimize,
     isconstType, isconcretetype, widenconst, isdispatchtuple, isinlineable,
-    is_inlineable_constant, copy_exprargs, convert_to_ircode, coverage_enabled,
+    is_inlineable_constant, copy_exprargs, convert_to_ircode, coverage_enabled, argtypes_to_type,
     # Julia passes
     compact!, ssa_inlining_pass!, getfield_elim_pass!, adce_pass!, type_lift_pass!,
     verify_linetable, verify_ir, slot2reg

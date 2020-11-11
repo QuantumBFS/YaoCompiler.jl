@@ -57,4 +57,19 @@ end
     @test tape[1] == Expr(:call, YaoCompiler.Semantic.ctrl, Gate.shift(0.1), Locations(2), CtrlLocations(1))
 end
 
+qasm"""OPENQASM 2.0;
+include "qelib1.inc";
+"""
+
+@device function adder3()
+    @ctrl 1 4=>X
+    @ctrl 2 4=>X
+    @ctrl 3 4=>X
+    (1,2,5) => ccx()
+    (1,3,5) => ccx()
+    (2,3,5) => ccx()
+end
+
+@testset "YaoLang/#66" begin
+    @code_qasm adder3()
 end

@@ -142,6 +142,8 @@ CtrlLocations(x::LocationStorageTypes, cfg::Union{Tuple, Vector, BitVector}) =
 CtrlLocations(xs...) = CtrlLocations(Locations(xs...))
 
 Base.length(l::CtrlLocations) = length(l.storage)
+Base.iterate(l::CtrlLocations) = iterate(l.storage)
+Base.iterate(l::CtrlLocations, st) = iterate(l.storage, st)
 
 function Base.show(io::IO, x::Locations)
     print(io, "Locations(")

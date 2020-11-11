@@ -25,48 +25,70 @@ Core.Compiler.unlock_mi_inference(interp::YaoInterpreter, mi::Core.MethodInstanc
 Core.Compiler.lock_mi_inference(interp::YaoInterpreter, mi::Core.MethodInstance) = Core.Compiler.lock_mi_inference(interp.native_interpreter, mi)
 Core.Compiler.add_remark!(interp::YaoInterpreter, st::Core.Compiler.InferenceState, msg::String) = nothing # println(msg)
 
-function Core.Compiler.abstract_eval_statement(interp::YaoInterpreter, @nospecialize(e), vtypes::VarTable, sv::InferenceState)    
-    is_quantum_statement(e) || return Core.Compiler.abstract_eval_statement(interp.native_interpreter, e, vtypes, sv)
-    qt = quantum_stmt_type(e)
+function Core.Compiler.abstract_call(interp::YaoInterpreter, fargs::Union{Nothing,Vector{Any}}, argtypes::Vector{Any},
+    sv::InferenceState, max_methods::Int = InferenceParams(interp).MAX_METHODS)
 
-    if qt === :measure
-        return Int
-    elseif qt === :gate || qt === :ctrl
-        ea = e.args
-        n = length(ea)
-        argtypes = Vector{Any}(undef, n)
-        @inbounds for i = 1:n
-            ai = Core.Compiler.abstract_eval_value(interp, ea[i], vtypes, sv)
-            if ai === Core.Compiler.Bottom
-                return Core.Compiler.Bottom
-            end
-            argtypes[i] = ai
-        end
-        gt = Core.Compiler.widenconst(argtypes[2])
-
-        gt <: IntrinsicRoutine && return Core.Const(nothing)
-        atypes = Core.Compiler.argtypes_to_type(argtypes)
-
-        if qt === :gate
-            sf = Semantic.gate
-        else
-            sf = Semantic.ctrl
-        end
-
-        callinfo = Core.Compiler.abstract_call_gf_by_type(interp, sf, argtypes, atypes, sv)
-        sv.stmt_info[sv.currpc] = callinfo.info
-        t = callinfo.rt
+    ft = argtypes[1]
+    if isa(ft, Const)
+        f = ft.val
+    elseif isconstType(ft)
+        f = ft.parameters[1]
+    elseif isa(ft, DataType) && isdefined(ft, :instance)
+        f = ft.instance
     else
-        return Core.Const(nothing)
+        # non-constant function, but the number of arguments is known
+        # and the ft is not a Builtin or IntrinsicFunction
+        if Core.Compiler.typeintersect(widenconst(ft), Core.Builtin) != Union{}
+            Core.Compiler.add_remark!(interp, sv, "Could not identify method table for call")
+            return Core.Compiler.CallMeta(Any, false)
+        end
+        return Core.Compiler.abstract_call_gf_by_type(interp, nothing, argtypes, argtypes_to_type(argtypes), sv, max_methods)
     end
 
-    # copied from abstract_eval_statement
-    @assert !isa(t, TypeVar)
-    if isa(t, DataType) && isdefined(t, :instance)
-        # replace singleton types with their equivalent Const object
-        t = Core.Const(t.instance)
+    allconst = true
+    for x in argtypes
+        if !(x isa Const)
+            allconst = false
+        end
     end
-    return t
+
+    if f isa Function && parentmodule(f) === Semantic
+        return abstract_call_quantum(interp, f, fargs, argtypes, sv, max_methods)
+    elseif f === Locations && allconst
+        return CallMeta(Const(f(argtypes[2].val)), nothing)
+    elseif f === CtrlLocations && allconst
+        la = length(fargs) - 1
+        if la == 1
+            loc = f(argtypes[2].val)
+        elseif la == 2
+            loc = f(argtypes[2].val, argtypes[3].val)
+        else
+            Core.Compiler.add_remark!(interp, sv, "Invalid CtrlLocation statement")
+        end
+        return CallMeta(Const(loc), nothing)
+    end
+
+    return Core.Compiler.abstract_call_known(interp, f, fargs, argtypes, sv, max_methods)
+end
+
+function abstract_call_quantum(interp::AbstractInterpreter, @nospecialize(f),
+    fargs::Union{Nothing,Vector{Any}}, argtypes::Vector{Any},
+    sv::InferenceState,
+    max_methods::Int = InferenceParams(interp).MAX_METHODS)
+
+    if f === Semantic.measure
+        return Core.Compiler.CallMeta(Int, nothing)
+    elseif f === Semantic.gate || f === Semantic.ctrl
+        gt = argtypes[2]
+        if gt isa Const && gt.val isa IntrinsicSpec
+            callinfo = CallMeta(Const(nothing), nothing)
+        else
+            callinfo = Core.Compiler.abstract_call_known(interp, f, fargs, argtypes, sv, max_methods)
+        end
+        return CallMeta(callinfo.rt, nothing)
+    else
+        return Core.Compiler.CallMeta(Const(nothing), nothing)
+    end
 end
 
 # NOTE: this is copied from Core.Compiler._typeinf
@@ -99,7 +121,7 @@ function Core.Compiler.typeinf(interp::YaoInterpreter, frame::InferenceState)
             if opt isa OptimizationState
                 run_optimizer = doopt && Core.Compiler.may_optimize(interp)
                 if run_optimizer
-                    if parentmodule(frame.result.linfo.def.sig.parameters[1]) === Semantic
+                    if !(frame.result.linfo.def.sig isa UnionAll) && parentmodule(frame.result.linfo.def.sig.parameters[1]) === Semantic
                         optimize(opt, YaoOptimizationParams(interp), caller.result)
                     else
                         Core.Compiler.optimize(opt, OptimizationParams(interp), caller.result)

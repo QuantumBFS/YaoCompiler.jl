@@ -91,6 +91,16 @@ function RegMap(target, ci::CodeInfo)
     return RegMap(cbits, regs_to_locs, locs_to_reg_addr)
 end
 
+function Base.getindex(map::RegMap, loc::Locations)
+    return ntuple(length(loc)) do k
+        map.locs_to_reg_addr[loc.storage[k]]
+    end
+end
+
+function Base.getindex(map::RegMap, loc::CtrlLocations)
+    return map[loc.storage]
+end
+
 mutable struct QASMCodeGenState
     pc::Int
     stmt
@@ -154,9 +164,13 @@ function obtain_ssa_const(@nospecialize(x), ci::CodeInfo)
     if x isa SSAValue
         x = ci.ssavaluetypes[x.id]::Const
         return x.val
-    else
-        return x
+    elseif x isa GlobalRef
+        if isdefined(x.mod, x.name) && isconst(x.mod, x.name)
+            return getfield(x.mod, x.name)
+        end
     end
+
+    return x
 end
 
 function obtain_gate_stmt(@nospecialize(x), ci::CodeInfo)
@@ -334,6 +348,14 @@ function index_qreg(r::Int, addr::Int, regmap::RegMap)
     end
 end
 
+function index_qreg(loc::Locations, regmap::RegMap)
+    return map(regmap[loc]) do (r, addr)
+        index_qreg(r, addr, regmap)
+    end
+end
+
+index_qreg(ctrl::CtrlLocations, regmap::RegMap) = index_qreg(ctrl.storage, regmap)
+
 function codegen_gate(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
     # NOTE: QASM compatible code should have constant location
     if st.stmt.head === :invoke
@@ -477,17 +499,25 @@ function codegen_ctrl(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
         ctrl = obtain_ssa_const(st.stmt.args[4], ci)::CtrlLocations
     end
 
+    all(ctrl.configs) || error("inverse ctrl is not supported in QASM backend yet")
     if gate === Gate.X && length(ctrl) == 1 && length(locs) == 1
-        ctrl.configs[1] || error("inverse ctrl is not supported in QASM backend yet")
-        qargs = Any[]
-        r, addr = st.regmap.locs_to_reg_addr[ctrl.storage.storage]
-        push!(qargs, index_qreg(r, addr, st.regmap))
-        r, addr = st.regmap.locs_to_reg_addr[locs.storage]
-        push!(qargs, index_qreg(r, addr, st.regmap))
+        qargs = Any[index_qreg(ctrl, st.regmap)..., index_qreg(locs, st.regmap)...]
         return QASM.Parse.Instruction(
             Token{:id}("CX"),
             Any[], qargs
         )
+    elseif gate === Gate.X && length(ctrl) == 2 && length(locs) == 1
+        error(
+            "ccx is not valid intrinsic QASM instruction. posssible fix:\n",
+            "1. include a qasm stdlib e.g qelib<version>.inc and use ccx gate from it\n",
+            "2. define your own ccx gate via @device using CX and single qubit gate"
+        )
+        # ctrl.configs[1] || error("inverse ctrl is not supported in QASM backend yet")
+        # qargs = Any[index_qreg(ctrl, st.regmap)..., index_qreg(locs, st.regmap)...]
+        # return QASM.Parse.Instruction(
+        #     Token{:id}("ccx"),
+        #     Any[], qargs
+        # )
     else
         error("invalid control statement for QASM backend, got: $(st.stmt)")
     end

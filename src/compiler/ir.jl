@@ -95,6 +95,7 @@ function finish(ci::NewCodeInfo)
 end
 
 function is_quantum_statement(@nospecialize(e))
+    e isa Function && parentmodule(e) == Semantic && return true
     e isa Expr || return false
     e.head === :quantum && return true
     if e.head === :call
