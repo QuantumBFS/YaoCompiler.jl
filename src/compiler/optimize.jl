@@ -513,14 +513,14 @@ function run_zx_passes(ir::YaoIR)
             e = ir.ir.stmts[v][:inst]
             qt = quantum_stmt_type(e)
             if qt === :gate
-                e.args[3] isa IntrinsicSpec || break
+                e.args[3] isa IntrinsicRoutine || break
                 e.args[4] isa Locations || break
                 # if can't convert to ZXDiagram, stop
                 zx_push_gate!(qc, e.args[3], e.args[4]) || break
                 # set old stmts to nothing
                 compact[v] = nothing
             elseif qt === :ctrl
-                e.args[3] isa IntrinsicSpec || break
+                e.args[3] isa IntrinsicRoutine || break
                 e.args[4] isa Locations || break
                 e.args[5] isa CtrlLocations || break
                 zx_push_gate!(qc, e.args[3], e.args[4], e.args[5]) || break
@@ -547,11 +547,11 @@ function run_zx_passes(ir::YaoIR)
         qc = QCircuit(zxd)
         for g in ZXCalculus.gates(qc)
             if g.name in (:H, :Z, :X, :S, :T, :Sdag, :Tdag)
-                spec = IntrinsicSpec{g.name}()
+                spec = getfield(Intrinsics, g.name)
                 mi = specialize_gate(typeof(spec), Locations{Int})
                 e = Expr(:invoke, mi, Semantic.gate, spec, Locations(g.loc))
             elseif g.name in (:shift, :Rz, :Rx)
-                spec = IntrinsicSpec{g.name}(g.param)
+                spec = getfield(Intrinsics, g.name)
                 mi = specialize_gate(typeof(spec), Locations{Int})
                 e = Expr(:invoke, mi, Semantic.gate, spec, Locations(g.loc))
             elseif g.name === :CNOT
@@ -573,8 +573,8 @@ end
 
 function specialize_gate(spec, loc)
     atypes = Tuple{typeof(Semantic.gate), spec, loc}
-    if spec <: IntrinsicSpec
-        method = first(methods(Semantic.gate, Tuple{IntrinsicSpec, Locations}))
+    if spec <: IntrinsicRoutine
+        method = first(methods(Semantic.gate, Tuple{IntrinsicRoutine, Locations}))
     elseif spec <: RoutineSpec
         method = first(methods(Semantic.gate, Tuple{RoutineSpec, Locations}))
     end
@@ -584,8 +584,8 @@ end
 
 function specialize_ctrl(spec, loc, ctrl)
     atypes = Tuple{typeof(Semantic.ctrl), spec, loc, ctrl}
-    if spec <: IntrinsicSpec
-        method = first(methods(Semantic.ctrl, Tuple{IntrinsicSpec, Locations, CtrlLocations}))
+    if spec <: IntrinsicRoutine
+        method = first(methods(Semantic.ctrl, Tuple{IntrinsicRoutine, Locations, CtrlLocations}))
     elseif spec <: RoutineSpec
         method = first(methods(Semantic.ctrl, Tuple{RoutineSpec, Locations, CtrlLocations}))
     end
@@ -593,7 +593,7 @@ function specialize_ctrl(spec, loc, ctrl)
     return Core.Compiler.specialize_method(method, atypes, Core.svec())
 end
 
-function zx_push_gate!(qc::QCircuit, gate::IntrinsicSpec, locs::Locations)
+function zx_push_gate!(qc::QCircuit, gate::IntrinsicRoutine, locs::Locations)
     name = routine_name(gate)
 
     # NOTE: locs can be UnitRange etc. for instruction
@@ -617,7 +617,7 @@ function zx_push_gate!(qc::QCircuit, gate::IntrinsicSpec, locs::Locations)
     return true
 end
 
-function zx_push_gate!(qc::QCircuit, gate::IntrinsicSpec, locs::Locations, ctrl::CtrlLocations)
+function zx_push_gate!(qc::QCircuit, gate::IntrinsicRoutine, locs::Locations, ctrl::CtrlLocations)
     name = routine_name(gate)
     ctrl = ctrl.storage.storage
 

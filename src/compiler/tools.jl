@@ -19,7 +19,7 @@ function gate_count(ci::CodeInfo)
                 gate, gt = obtain_gate_stmt(stmt.args[2], ci)
             end
 
-            if gate isa IntrinsicSpec && isempty(gate.variables)
+            if gate isa IntrinsicRoutine && isempty(gate.variables)
                 gc[gate] = get(gc, gate, 0) + 1
             else
                 gc[parent(gate)] = get(gc, parent(gate), 0) + 1

@@ -2,21 +2,21 @@ struct EchoReg{B} <: AbstractRegister{B} end
 Base.show(io::IO, x::EchoReg) = print(io, "echo register")
 EchoReg() = EchoReg{1}()
 
-_snameof(x::IntrinsicSpec) = string(routine_name(x))
+_snameof(x::IntrinsicRoutine) = string(routine_name(x))
 _snameof(x::AbstractLocations) = string(x)
 
-function execute(::typeof(Semantic.main), ::EchoReg, op::IntrinsicSpec)
+function execute(::typeof(Semantic.main), ::EchoReg, op::IntrinsicRoutine)
     @info "executing $op"
     return
 end
 
-function execute(::typeof(Semantic.gate), ::EchoReg, op::IntrinsicSpec, loc::Locations)
+function execute(::typeof(Semantic.gate), ::EchoReg, op::IntrinsicRoutine, loc::Locations)
     loc = sprint(print_locations, loc; context=:color=>true)
     @info "executing $loc => $op"
     return
 end
 
-function execute(::typeof(Semantic.ctrl), ::EchoReg, op::IntrinsicSpec, loc::Locations, ctrl::CtrlLocations)
+function execute(::typeof(Semantic.ctrl), ::EchoReg, op::IntrinsicRoutine, loc::Locations, ctrl::CtrlLocations)
     loc = sprint(print_locations, loc; context=:color=>true)
     ctrl = sprint(print_locations, ctrl; context=:color=>true)
     @info "executing @ctrl $(ctrl) $loc => $op"
@@ -76,17 +76,17 @@ function Base.show(io::IO, tape::TraceTape)
     return
 end
 
-function execute(stub::typeof(Semantic.main), r::TraceTape, op::IntrinsicSpec)
+function execute(stub::typeof(Semantic.main), r::TraceTape, op::IntrinsicRoutine)
     push!(r.inst, Expr(:call, stub, op))
     return
 end
 
-function execute(stub::typeof(Semantic.gate), r::TraceTape, op::IntrinsicSpec, loc::Locations)
+function execute(stub::typeof(Semantic.gate), r::TraceTape, op::IntrinsicRoutine, loc::Locations)
     push!(r.inst, Expr(:call, stub, op, loc))
     return
 end
 
-function execute(stub::typeof(Semantic.ctrl), r::TraceTape, op::IntrinsicSpec, loc::Locations, ctrl::CtrlLocations)
+function execute(stub::typeof(Semantic.ctrl), r::TraceTape, op::IntrinsicRoutine, loc::Locations, ctrl::CtrlLocations)
     push!(r.inst, Expr(:call, stub, op, loc, ctrl))
     return
 end

@@ -366,7 +366,7 @@ function codegen_gate(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
         locs = obtain_ssa_const(st.stmt.args[3], ci)
     end
 
-    gt <: IntrinsicSpec || gt <: RoutineSpec || error("invalid gate type: $gate::$gt")
+    gt <: IntrinsicRoutine || gt <: RoutineSpec || error("invalid gate type: $gate::$gt")
     name = gate_name(gt)
     cargs = codegen_cargs(target, ci, gate, st)
     qargs = Any[]
@@ -382,10 +382,12 @@ function codegen_gate(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
 end
 
 function codegen_cargs(::TargetQASMTopLevel, ::CodeInfo, @nospecialize(gate), ::QASMCodeGenState)
-    if gate isa RoutineSpec || gate isa IntrinsicSpec
+    if gate isa RoutineSpec
         # constant parameters
         # non-constant parameters in toplevel is not allowed
         return Any[Token{:unnamed}(string(x)) for x in gate.variables]
+    elseif gate isa IntrinsicRoutine
+        return Any[Token{:unnamed}(string(getfield(gate, each))) for each in fieldnames(typeof(gate))]
     else
         error("classical variable in toplevel is not allowed in QASM")
     end
@@ -398,7 +400,11 @@ function codegen_cargs(target::TargetQASMGate, ci::CodeInfo, @nospecialize(gate)
         if gate.head === :new
             variables = gate.args[2]::SSAValue
             var_tuple = ci.code[variables.id]::Expr
-            vars = var_tuple.args[2:end]
+            if var_tuple.args[1] === Core.tuple
+                vars = var_tuple.args[2:end]
+            else
+                vars = gate.args[2:end]
+            end
         elseif gate.head === :call # normal constructor call
             vars = gate.args[2:end]
         end
@@ -408,10 +414,12 @@ function codegen_cargs(target::TargetQASMGate, ci::CodeInfo, @nospecialize(gate)
             push!(cargs, codegen_exp(target, ci, each, st))
         end
         return cargs
-    elseif gate isa RoutineSpec || gate isa IntrinsicSpec
+    elseif gate isa RoutineSpec
         # constant parameters
         # non-constant parameters in toplevel is not allowed
         return Any[codegen_exp(target, ci, x, st) for x in gate.variables]
+    elseif gate isa IntrinsicRoutine
+        return Any[codegen_exp(target, ci, getfield(gate, each), st) for each in fieldnames(typeof(gate))]
     else
         error("invalid instruction: $gate")
     end

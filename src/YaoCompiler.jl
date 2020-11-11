@@ -47,7 +47,7 @@ export @qasm_str
 
 # compiler internal extensions
 include("compiler/interpreter.jl")
-include("compiler/ir.jl")
+include("compiler/codeinfo.jl")
 include("compiler/optimize.jl")
 
 # code generators

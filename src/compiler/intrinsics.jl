@@ -11,27 +11,33 @@ macro intrinsic(ex)
 end
 
 function intrinsic_m(name::Symbol)
+    tname = Symbol(name, :Gate)
     return quote
-        Core.@__doc__ const $name = $IntrinsicSpec{$(QuoteNode(name))}()
+        Core.@__doc__ struct $tname <: $IntrinsicRoutine end
+        Core.@__doc__ const $name = $tname()
     end
 end
 
-function intrinsic_m(ex::Expr)
-    ex.head === :call || error("expect a function call or a symbol")
-    name = ex.args[1]::Symbol
+# function intrinsic_m(ex::Expr)
+#     ex.head === :call || error("expect a function call or a symbol")
+#     name = ex.args[1]::Symbol
+#     args = rm_annotations.(ex.args[2:end])
 
-    return quote
-        Core.@__doc__ const $name = $IntrinsicRoutine{$(QuoteNode(name))}()
+#     body = Expr(:block)
+#     def = Expr(:struct, false, name, body)
 
-        function (self::$IntrinsicRoutine{$(QuoteNode(name))})($(ex.args[2:end]...))
-            return $IntrinsicSpec(self, $(rm_annotations.(ex.args[2:end])...))
-        end
-    end
-end
+#     return quote
+#         Core.@__doc__ const $name = $IntrinsicRoutine{$(QuoteNode(name))}()
+
+#         function (self::$IntrinsicRoutine{$(QuoteNode(name))})($(ex.args[2:end]...))
+#             return $IntrinsicSpec(self, $(rm_annotations.(ex.args[2:end])...))
+#         end
+#     end
+# end
 
 module Intrinsics
 
-using ..YaoCompiler: @intrinsic
+using ..YaoCompiler: @intrinsic, IntrinsicRoutine
 export X, Y, Z, H, S, T, shift, Rx, Ry, Rz
 
 @intrinsic X
@@ -41,9 +47,16 @@ export X, Y, Z, H, S, T, shift, Rx, Ry, Rz
 @intrinsic S
 @intrinsic T
 
-@intrinsic shift(θ::Real)
-@intrinsic Rx(θ::Real)
-@intrinsic Ry(θ::Real)
-@intrinsic Rz(θ::Real)
+# TODO: implement intrinsic macro for function calls
+# @intrinsic shift(θ::Real)
+# @intrinsic Rx(θ::Real)
+# @intrinsic Ry(θ::Real)
+# @intrinsic Rz(θ::Real)
+
+for name in [:shift, :Rx, :Ry, :Rz]
+    @eval struct $name{T} <: IntrinsicRoutine
+        θ::T
+    end
+end
 
 end

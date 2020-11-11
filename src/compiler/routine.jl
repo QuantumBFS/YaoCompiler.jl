@@ -19,38 +19,31 @@ with known parameters, or pulses.
 abstract type Operation end
 
 struct GenericRoutine{name} <: Routine end
-struct IntrinsicRoutine{name} <: Routine end
+
+abstract type IntrinsicRoutine <: Routine end
 
 Base.parent(x::Routine) = x
 
-struct IntrinsicSpec{name, Vars} <: Operation
-    variables::Vars
-
-    function IntrinsicSpec{name}(xs...) where name
-        new{name, typeof(xs)}(xs)
-    end
-
-    function IntrinsicSpec(::IntrinsicRoutine{name}, xs...) where name
-        new{name, typeof(xs)}(xs)
-    end
-end
-
-Base.parent(::IntrinsicSpec{name}) where name = IntrinsicRoutine{name}()
-
-function print_routine(io::IO, x::IntrinsicSpec{name}) where name
-    print(io, name)
-    if !isempty(x.variables)
+function print_routine(io::IO, x::IntrinsicRoutine)
+    print(io, routine_name(x))
+    fnames = fieldnames(typeof(x))
+    if !isempty(fnames)
         print(io, "(")
-        join(io, x.variables, ", ")
+        for k in 1:length(fnames)
+            print(io, getfield(x, fnames[k]))
+            if k != length(fnames)
+                print(io, ", ")
+            end
+        end
         print(io, ")")
     end
 end
 
-function Base.show(io::IO, x::IntrinsicSpec)
+function Base.show(io::IO, x::IntrinsicRoutine)
     print_routine(io, x)
 end
 
-function Base.show(io::IO, ::MIME"text/plain", x::IntrinsicSpec)
+function Base.show(io::IO, ::MIME"text/plain", x::IntrinsicRoutine)
     print_routine(io, x)
     printstyled(io, " (intrinsic operation)"; color=operation_annotation_color)
 end
@@ -64,15 +57,6 @@ function Base.show(io::IO, ::MIME"text/plain", fn::GenericRoutine{name}) where n
     printstyled(io, " (generic routine with ", length(methods(fn).ms), " methods)"; color=operation_annotation_color)
 end
 
-function Base.show(io::IO, fn::IntrinsicRoutine{name}) where name
-    print(io, name)
-end
-
-function Base.show(io::IO, ::MIME"text/plain", fn::IntrinsicRoutine{name}) where name
-    print(io, name)
-    printstyled(io, " (intrinsic routine)"; color=operation_annotation_color)
-end
-
 # NOTE: kwargs is not supported for now
 struct RoutineSpec{P, Vars} <: Operation
     parent::P
@@ -83,13 +67,7 @@ struct RoutineSpec{P, Vars} <: Operation
     end
 end
 
-function Base.hash(routine::RoutineSpec{P, Vars}, key) where {P, Vars}
-    return hash(Tuple{P, Vars}, key)
-end
-
 Base.parent(x::RoutineSpec) = x.parent
-
-Base.:(==)(::IntrinsicRoutine{A}, ::IntrinsicRoutine{A}) where A = true
 Base.:(==)(::GenericRoutine{A}, ::GenericRoutine{A}) where A = true
 
 # NOTE: the reason we don't use a gensym
@@ -109,8 +87,7 @@ Base.adjoint(x::Adjoint) = x.parent
 routine_name(::Type) = nothing
 routine_name(x) = routine_name(typeof(x))
 routine_name(::Type{<:GenericRoutine{name}}) where name = name
-routine_name(::Type{<:IntrinsicRoutine{name}}) where name = name
-routine_name(::Type{<:IntrinsicSpec{name}}) where name = name
+routine_name(::Type{T}) where {T <: IntrinsicRoutine} = nameof(T)
 routine_name(::Type{<:RoutineSpec{P}}) where P = routine_name(P)
 routine_name(::Type{<:Adjoint{P}}) where P = Symbol(routine_name(P), "_dag")
 
