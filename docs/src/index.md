@@ -1,19 +1,19 @@
 ```@meta
-CurrentModule = YaoLang.Compiler
+CurrentModule = YaoCompiler.Compiler
 ```
 
 ## Introduction
 
-YaoLang is a **Julia compiler extension**. It compiles a subset of Julia programs
+YaoCompiler is a **Julia compiler extension**. It compiles a subset of Julia programs
 to quantum device. As a language aims to solve the two language problem, we want to
 provide our solution to the two language problem in quantum programming.
 
-YaoLang extends the native Julia semantics via macros and interpret
+YaoCompiler extends the native Julia semantics via macros and interpret
 these extra semantics via custom interpreter based on Julia's own interpreter
 during Julia's own type inference stage then runs our own specific
 optimization passes after Julia compiler optimizes the classical parts.
 
-The YaoLang project aims to:
+The YaoCompiler project aims to:
 
 1. compiles native Julia program to quantum devices and quantum device simulators
 2. provide an infrastructure for quantum compilation related research.
@@ -21,12 +21,12 @@ The YaoLang project aims to:
 ## Features
 ### Writing Hybrid Programs
 
-One of the major goal of YaoLang is to represent hybrid programs, which means programs mixed with
+One of the major goal of YaoCompiler is to represent hybrid programs, which means programs mixed with
 classical functions and quantum routines. This is something happens very frequently in practical
 quantum computation and all the actual program controls quantum devices can be seen as such a hybrid
 program.
 
-In YaoLang, you can use ANY classical Julia program semantics, such as control flows, function calls,
+In YaoCompiler, you can use ANY classical Julia program semantics, such as control flows, function calls,
 and even other Julia packages. It is fully compatible with native Julia code. The compiler will only
 check if the program is compatible with your target machine or not. Here is a QFT example written using
 classical control flow:
@@ -44,8 +44,8 @@ classical control flow:
 end
 ```
 
-We don't have a real quantum device that supports running YaoLang natively, but ideally we can. Given Julia
-itself is actually Just-Ahead-of-Time (JAOT) compiled, there will not be any latency issue when we actually controls the quantum device - YaoLang as a subset of JuliaLang is static itself. It requires
+We don't have a real quantum device that supports running YaoCompiler natively, but ideally we can. Given Julia
+itself is actually Just-Ahead-of-Time (JAOT) compiled, there will not be any latency issue when we actually controls the quantum device - YaoCompiler as a subset of JuliaLang is static itself. It requires
 one to write type-stable Julia program in most cases except for native Julia simulator backend.
 
 ### QASM Support
@@ -77,7 +77,7 @@ julia> circuit = qasm"""OPENQASM 2.0;
        """
 ##qasm#702 (generic routine with 1 methods)
 
-julia> YaoLang.@echo circuit()
+julia> YaoCompiler.@echo circuit()
 [ Info: executing 3 => Rz(-1.0)
 [ Info: executing 3 => Ry(4.570796326794897)
 [ Info: executing 3 => Rz(3.0)
@@ -94,10 +94,10 @@ julia> YaoLang.@echo circuit()
 (c1 = 0,)
 ```
 
-this string literal `@qasm_str` (See [string literal section of Julia documentation](https://docs.julialang.org/en/v1/manual/metaprogramming/#Non-Standard-String-Literals)) will create a YaoLang routine
-for all the gate declaration and in the and creates a anoymous YaoLang routine for the toplevel QASM program.
+this string literal `@qasm_str` (See [string literal section of Julia documentation](https://docs.julialang.org/en/v1/manual/metaprogramming/#Non-Standard-String-Literals)) will create a YaoCompiler routine
+for all the gate declaration and in the and creates a anoymous YaoCompiler routine for the toplevel QASM program.
 
 ### Hybrid Program Optimization
 
-YaoLang can optimize your hybrid program using both Julia and its custom compiler optimization pass.
+YaoCompiler can optimize your hybrid program using both Julia and its custom compiler optimization pass.
 See optimization section for more details.

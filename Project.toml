@@ -1,4 +1,4 @@
-name = "YaoLang"
+name = "YaoCompiler"
 uuid = "b3514fdc-7bcc-425b-920a-42c43c8eb4b4"
 authors = ["Roger-luo"]
 version = "0.1.0"

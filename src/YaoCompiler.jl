@@ -1,4 +1,4 @@
-module YaoLang
+module YaoCompiler
 
 using LinearAlgebra
 using YaoAPI
@@ -31,8 +31,8 @@ using Core.Compiler: get_world_counter, get_inference_cache, may_optimize,
 
 using Base.Meta: ParseError
 
-import ..YaoLang
-using YaoLang: AbstractLocations, merge_locations, Locations, CtrlLocations
+import ..YaoCompiler
+using YaoCompiler: AbstractLocations, merge_locations, Locations, CtrlLocations
 
 export Routine, GenericRoutine, IntrinsicRoutine, RoutineSpec, IntrinsicSpec, @ctrl, @measure, @gate, @barrier, @device
 export routine_name

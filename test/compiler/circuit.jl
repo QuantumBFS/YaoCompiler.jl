@@ -1,8 +1,8 @@
 module TestMacros
 
-using YaoLang
-using YaoLang.Gate
-using YaoLang.Compiler
+using YaoCompiler
+using YaoCompiler.Gate
+using YaoCompiler.Compiler
 using Test
 
 @device function qft(n::Int)
@@ -36,8 +36,8 @@ end
 end
 
 @testset "tracing" begin
-    tape1 = YaoLang.@trace qft(4)
-    tape2 = YaoLang.@trace qft4()
+    tape1 = YaoCompiler.@trace qft(4)
+    tape2 = YaoCompiler.@trace qft4()
     @test tape1 == tape2    
 end
 
@@ -53,9 +53,9 @@ end
 
 @testset "callable" begin
     m = Foo(1, 2)
-    tape = YaoLang.@trace m(0.1)
+    tape = YaoCompiler.@trace m(0.1)
     @test length(tape) == 1
-    @test tape[1] == Expr(:call, YaoLang.Compiler.Semantic.ctrl, Gate.shift(0.1), Locations(2), CtrlLocations(1))
+    @test tape[1] == Expr(:call, YaoCompiler.Compiler.Semantic.ctrl, Gate.shift(0.1), Locations(2), CtrlLocations(1))
 end
 
 end

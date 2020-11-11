@@ -4,7 +4,7 @@ export @qasm_str
 
 using RBNF
 using ExprTools
-using ..YaoLang
+using ..YaoCompiler
 
 module Parse
 
@@ -566,7 +566,7 @@ function parse(m::Module, l::LineNumberNode, ast::Parse.MainProgram)
             :name => gensym(:qasm),
             :body => body,
         )
-        push!(code.args, YaoLang.Compiler.device_def(def))
+        push!(code.args, YaoCompiler.Compiler.device_def(def))
     end
     return code
 end
@@ -583,7 +583,7 @@ function parse(ctx::Ctx, stmt::Parse.Gate)
     end
 
     def = Dict(:name=>name, :args=>args, :body=>body)
-    return YaoLang.Compiler.device_def(def)
+    return YaoCompiler.Compiler.device_def(def)
 end
 
 function parse_gate_registers(stmt::Vector)
@@ -596,8 +596,8 @@ function parse_gate_registers(stmt::Vector)
     return record
 end
 
-semantic_gate(gate, locs) = Expr(:call, GlobalRef(YaoLang.Compiler.Semantic, :gate), gate, locs)
-semantic_ctrl(gate, locs, ctrl) = Expr(:call, GlobalRef(YaoLang.Compiler.Semantic, :ctrl), gate, locs, ctrl)
+semantic_gate(gate, locs) = Expr(:call, GlobalRef(YaoCompiler.Compiler.Semantic, :gate), gate, locs)
+semantic_ctrl(gate, locs, ctrl) = Expr(:call, GlobalRef(YaoCompiler.Compiler.Semantic, :ctrl), gate, locs, ctrl)
 
 function parse(ctx::Ctx, stmt::Parse.UGate)
     code = Expr(:block)
@@ -626,12 +626,12 @@ end
 function parse(ctx::Ctx, stmt::Parse.Measure)
     locs = parse(ctx, stmt.qarg)
     name = parse(ctx, stmt.carg)
-    return Expr(:(=), name, Expr(:call, GlobalRef(YaoLang.Compiler.Semantic, :measure), locs))
+    return Expr(:(=), name, Expr(:call, GlobalRef(YaoCompiler.Compiler.Semantic, :measure), locs))
 end
 
 function parse(ctx::Ctx, stmt::Parse.Barrier)
     return Expr(:call,
-        GlobalRef(YaoLang.Compiler.Semantic, :barrier),
+        GlobalRef(YaoCompiler.Compiler.Semantic, :barrier),
         parse_locations(ctx, stmt.qargs)
     )
 end
@@ -641,8 +641,8 @@ function parse(ctx::Ctx, stmt::Parse.Instruction)
     # NOTE: these are not intrinsic function in QASM
     # users need qelib1.inc to get the definition
     # but for convenience we treat them as intrinsic
-    # function here in YaoLang, since they are predefined
-    # as stdlib in YaoLang.
+    # function here in YaoCompiler, since they are predefined
+    # as stdlib in YaoCompiler.
 
     # isnothing(stmt.lst1) || throw(Meta.ParseError("$op gate should not have classical parameters"))
     locs = parse_locations(ctx, stmt.qargs)

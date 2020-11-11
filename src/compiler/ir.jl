@@ -264,7 +264,7 @@ function create_codeinfo(::typeof(Semantic.ctrl), S::Type{<:RoutineSpec})
             elseif type === :ctrl
                 local_location = insert_stmt!(new, v, Expr(:call, GlobalRef(Base, :getindex), locations, stmt.args[3]))
                 local_ctrl = insert_stmt!(new, v, Expr(:call, GlobalRef(Base, :getindex), locations, stmt.args[4]))
-                real_ctrl = insert_stmt!(new, v, Expr(:call, GlobalRef(YaoLang, :merge_locations), local_ctrl, ctrl))
+                real_ctrl = insert_stmt!(new, v, Expr(:call, GlobalRef(YaoCompiler, :merge_locations), local_ctrl, ctrl))
                 e = Expr(:call, GlobalRef(Semantic, :ctrl), stmt.args[2], local_location, real_ctrl)
             elseif type === :measure
                 error("cannot use measure under a quantum control context")
@@ -304,7 +304,7 @@ function _prepare_frame(f, spec, args...)
     mi = Core.Compiler.specialize_method(method, atypes, Core.svec())
     result = Core.Compiler.InferenceResult(mi, Any[Core.Const(f), spec, args...])
     world = Core.Compiler.get_world_counter()
-    interp = YaoLang.Compiler.YaoInterpreter(;)
+    interp = YaoCompiler.Compiler.YaoInterpreter(;)
     frame = Core.Compiler.InferenceState(result, #=cached=# true, interp)
     return interp, frame
 end

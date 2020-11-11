@@ -152,7 +152,7 @@ end
 function is_semantic_fn_call(e)
     return e isa Expr && e.head === :call &&
         e.args[1] isa GlobalRef &&
-            e.args[1].mod === YaoLang.Compiler.Semantic
+            e.args[1].mod === YaoCompiler.Compiler.Semantic
 end
 
 function convert_to_quantum_head!(ci::CodeInfo)

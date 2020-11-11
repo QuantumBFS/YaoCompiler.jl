@@ -1,5 +1,5 @@
-using YaoLang
-using YaoLang.Compiler: optimize
+using YaoCompiler
+using YaoCompiler.Compiler: optimize
 using ZXCalculus
 using YaoArrayRegister
 using Test

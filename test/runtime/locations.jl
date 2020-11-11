@@ -1,5 +1,5 @@
 using Test
-using YaoLang
+using YaoCompiler
 
 @testset "constructor type check" begin
     @test_throws LocationError Locations(1.0)

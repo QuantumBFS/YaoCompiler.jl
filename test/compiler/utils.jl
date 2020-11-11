@@ -1,9 +1,9 @@
 module TestUtils
 
 using Test
-using YaoLang
-using YaoLang.Compiler
-using YaoLang.Gate
+using YaoCompiler
+using YaoCompiler.Compiler
+using YaoCompiler.Gate
 
 @device function demo_circ_simp()
     1 => shift(7π / 4)
@@ -33,7 +33,7 @@ using YaoLang.Gate
 end
 
 
-YaoLang.Compiler.gate_count(demo_circ_simp())
+YaoCompiler.Compiler.gate_count(demo_circ_simp())
 
 @testset "gate_count" begin
     @test gate_count(demo_circ_simp()) == Dict(

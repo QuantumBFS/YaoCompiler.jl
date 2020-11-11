@@ -1,4 +1,4 @@
-using YaoLang
+using YaoCompiler
 using Test
 
 @testset "runtime" begin

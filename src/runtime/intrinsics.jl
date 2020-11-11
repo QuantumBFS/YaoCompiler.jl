@@ -54,7 +54,7 @@ Base.length(x::TraceTape) = length(x.inst)
 Base.getindex(x::TraceTape, idx::Int) = x.inst[idx]
 
 function Base.show(io::IO, tape::TraceTape)
-    println(io, "YaoLang.trace:")
+    println(io, "YaoCompiler.trace:")
     nstmt = length(tape.inst)
     for i in 1:nstmt
         stmt = tape.inst[i]

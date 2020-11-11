@@ -150,8 +150,8 @@ git-tree-sha1 = "dc4edfcda2e59fd2624f84941da040a4e30220e3"
 uuid = "0843a435-28de-4971-9e8b-a9641b2983a8"
 version = "0.1.0"
 
-[[YaoLang]]
+[[YaoCompiler]]
 deps = ["ExprTools", "IRTools", "LinearAlgebra", "LuxurySparse", "TimerOutputs", "YaoAPI"]
-path = "/Users/roger/.julia/dev/YaoLang"
-uuid = "77e32715-2d53-453b-8330-e0520dba5551"
-version = "0.2.1"
+path = "/Users/roger/.julia/dev/YaoCompiler"
+uuid = "b3514fdc-7bcc-425b-920a-42c43c8eb4b4"
+version = "0.1.0"

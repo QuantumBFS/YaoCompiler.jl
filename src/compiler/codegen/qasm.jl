@@ -97,16 +97,17 @@ mutable struct QASMCodeGenState
     regmap::RegMap
 
     name
+    carg_names
     ssa_cname_map
 end
 
 function QASMCodeGenState(target::TargetQASMTopLevel, ci::CodeInfo)
-    return QASMCodeGenState(0, nothing, RegMap(target, ci), nothing, nothing)
+    return QASMCodeGenState(0, nothing, RegMap(target, ci), nothing, nothing, nothing)
 end
 
 function QASMCodeGenState(target::TargetQASMGate, ci::CodeInfo)
-    name, ssa_cname_map = scan_cargs(ci)
-    return QASMCodeGenState(0, nothing, RegMap(target, ci), name, ssa_cname_map)
+    name, carg_names, ssa_cname_map = scan_cargs(ci)
+    return QASMCodeGenState(0, nothing, RegMap(target, ci), name, carg_names, ssa_cname_map)
 end
 
 # NOTE:
@@ -268,13 +269,13 @@ function scan_cargs(ci::CodeInfo)
         cargs[v] = name
     end
 
-    return gate_name(spec), cargs
+    return gate_name(spec), carg_names, cargs
 end
 
 function codegen(target::TargetQASMGate, ci::CodeInfo)
     st = QASMCodeGenState(target, ci)
     qargs = Any[Token{:id}(qreg_name(k)) for (k, _) in st.regmap.regs_to_locs]
-    cargs = Any[Token{:id}(cname) for (_, cname) in st.ssa_cname_map]
+    cargs = Any[Token{:id}(cname) for cname in st.carg_names]
     decl = QASM.Parse.GateDecl(Token{:id}(st.name), cargs, qargs)
 
     prog = Any[]

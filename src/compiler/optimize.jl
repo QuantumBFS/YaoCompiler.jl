@@ -555,11 +555,11 @@ function run_zx_passes(ir::YaoIR)
                 mi = specialize_gate(typeof(spec), Locations{Int})
                 e = Expr(:invoke, mi, Semantic.gate, spec, Locations(g.loc))
             elseif g.name === :CNOT
-                mi = specialize_ctrl(typeof(YaoLang.X), Locations{Int}, CtrlLocations{Int})
-                e = Expr(:invoke, mi, Semantic.ctrl, YaoLang.X, Locations(g.loc), CtrlLocations(g.ctrl))
+                mi = specialize_ctrl(typeof(YaoCompiler.X), Locations{Int}, CtrlLocations{Int})
+                e = Expr(:invoke, mi, Semantic.ctrl, YaoCompiler.X, Locations(g.loc), CtrlLocations(g.ctrl))
             elseif g.name === :CZ
-                mi = specialize_ctrl(typeof(YaoLang.Z), Locations{Int}, CtrlLocations{Int})
-                e = Expr(:invoke, mi, Semantic.ctrl, YaoLang.Z, Locations(g.loc), CtrlLocations(g.ctrl))
+                mi = specialize_ctrl(typeof(YaoCompiler.Z), Locations{Int}, CtrlLocations{Int})
+                e = Expr(:invoke, mi, Semantic.ctrl, YaoCompiler.Z, Locations(g.loc), CtrlLocations(g.ctrl))
             else
                 error("unknown gate $g")
             end

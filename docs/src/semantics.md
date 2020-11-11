@@ -1,9 +1,9 @@
 # Semantics
 
-The semantic of YaoLang tries to make use of Julia semantic as much as possible so you don't feel this
+The semantic of YaoCompiler tries to make use of Julia semantic as much as possible so you don't feel this
 is not Julian. But since the quantum circuit has some
 special semantic that Julia expression cannot express
-directly, the semantic of Julia expression is extended in YaoLang.
+directly, the semantic of Julia expression is extended in YaoCompiler.
 
 The point of this new IR is it make use of Julia native
 control flow directly instead of unroll the loop and conditions into a Julia type, such as `Chain`, `Kron`,

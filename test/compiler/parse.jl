@@ -1,10 +1,10 @@
 module TestParse
 
 using Test
-using YaoLang
-using YaoLang.Compiler
-using YaoLang.Compiler.QASM
-using YaoLang.Compiler.QASM.Parse
+using YaoCompiler
+using YaoCompiler.Compiler
+using YaoCompiler.Compiler.QASM
+using YaoCompiler.Compiler.QASM.Parse
 using RBNF: Token
 
 @testset "qasm parser" begin
@@ -234,8 +234,8 @@ include "qelib1.inc";
     @test length(ast.decl.cargs) == 3
     @test length(ast.decl.qargs) == 2
     @test length(ast.body) == 5
-    @test ast.decl.cargs[1].str == "phi"
-    @test ast.decl.cargs[2].str == "theta"
+    @test ast.decl.cargs[1].str == "theta"
+    @test ast.decl.cargs[2].str == "phi"
     @test ast.decl.cargs[3].str == "lambda"
 
     inst = ast.body[1]

@@ -1,5 +1,5 @@
 # API References
 
 ```@autodocs
-Modules = [YaoLang]
+Modules = [YaoCompiler]
 ```

@@ -281,7 +281,7 @@ function preprocess_device_gate_syntax(ex)
     end
 
     #= make @inbounds etc. work =#
-    # exclude YaoLang macros
+    # exclude YaoCompiler macros
     if ex.head in [:block, :if, :for] || (ex.head === :macrocall && !is_preserved_macro(ex))
         return Expr(ex.head, map(preprocess_device_gate_syntax, ex.args)...)
     end
