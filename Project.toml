@@ -1,7 +1,7 @@
 name = "YaoLang"
 uuid = "b3514fdc-7bcc-425b-920a-42c43c8eb4b4"
 authors = ["Roger-luo"]
-version = "0.3.0"
+version = "0.1.0"
 
 [deps]
 BitBasis = "50ba71b6-fa0f-514d-ae9a-0916efc90dcf"
