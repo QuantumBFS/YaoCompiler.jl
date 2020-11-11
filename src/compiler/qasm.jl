@@ -566,7 +566,7 @@ function parse(m::Module, l::LineNumberNode, ast::Parse.MainProgram)
             :name => gensym(:qasm),
             :body => body,
         )
-        push!(code.args, YaoCompiler.Compiler.device_def(def))
+        push!(code.args, YaoCompiler.device_def(def))
     end
     return code
 end
@@ -583,7 +583,7 @@ function parse(ctx::Ctx, stmt::Parse.Gate)
     end
 
     def = Dict(:name=>name, :args=>args, :body=>body)
-    return YaoCompiler.Compiler.device_def(def)
+    return YaoCompiler.device_def(def)
 end
 
 function parse_gate_registers(stmt::Vector)
@@ -596,8 +596,8 @@ function parse_gate_registers(stmt::Vector)
     return record
 end
 
-semantic_gate(gate, locs) = Expr(:call, GlobalRef(YaoCompiler.Compiler.Semantic, :gate), gate, locs)
-semantic_ctrl(gate, locs, ctrl) = Expr(:call, GlobalRef(YaoCompiler.Compiler.Semantic, :ctrl), gate, locs, ctrl)
+semantic_gate(gate, locs) = Expr(:call, GlobalRef(YaoCompiler.Semantic, :gate), gate, locs)
+semantic_ctrl(gate, locs, ctrl) = Expr(:call, GlobalRef(YaoCompiler.Semantic, :ctrl), gate, locs, ctrl)
 
 function parse(ctx::Ctx, stmt::Parse.UGate)
     code = Expr(:block)
@@ -626,12 +626,12 @@ end
 function parse(ctx::Ctx, stmt::Parse.Measure)
     locs = parse(ctx, stmt.qarg)
     name = parse(ctx, stmt.carg)
-    return Expr(:(=), name, Expr(:call, GlobalRef(YaoCompiler.Compiler.Semantic, :measure), locs))
+    return Expr(:(=), name, Expr(:call, GlobalRef(YaoCompiler.Semantic, :measure), locs))
 end
 
 function parse(ctx::Ctx, stmt::Parse.Barrier)
     return Expr(:call,
-        GlobalRef(YaoCompiler.Compiler.Semantic, :barrier),
+        GlobalRef(YaoCompiler.Semantic, :barrier),
         parse_locations(ctx, stmt.qargs)
     )
 end

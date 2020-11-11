@@ -304,7 +304,7 @@ function _prepare_frame(f, spec, args...)
     mi = Core.Compiler.specialize_method(method, atypes, Core.svec())
     result = Core.Compiler.InferenceResult(mi, Any[Core.Const(f), spec, args...])
     world = Core.Compiler.get_world_counter()
-    interp = YaoCompiler.Compiler.YaoInterpreter(;)
+    interp = YaoCompiler.YaoInterpreter(;)
     frame = Core.Compiler.InferenceState(result, #=cached=# true, interp)
     return interp, frame
 end

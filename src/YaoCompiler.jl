@@ -1,11 +1,14 @@
 module YaoCompiler
 
+export @device, @gate, @ctrl, @measure, @barrier
+# reflections
+export @code_yao, @code_qasm
+export gate_count
+export Gate
+
 using LinearAlgebra
-using YaoAPI
 
 include("runtime/locations.jl")
-
-module Compiler
 
 using TimerOutputs
 const to = TimerOutput()
@@ -31,9 +34,6 @@ using Core.Compiler: get_world_counter, get_inference_cache, may_optimize,
 
 using Base.Meta: ParseError
 
-import ..YaoCompiler
-using YaoCompiler: AbstractLocations, merge_locations, Locations, CtrlLocations
-
 export Routine, GenericRoutine, IntrinsicRoutine, RoutineSpec, IntrinsicSpec, @ctrl, @measure, @gate, @barrier, @device
 export routine_name
 
@@ -41,6 +41,9 @@ include("compiler/utils.jl")
 include("compiler/routine.jl")
 include("compiler/intrinsics.jl")
 include("compiler/qasm.jl")
+
+using .QASM: @qasm_str
+export @qasm_str
 
 # compiler internal extensions
 include("compiler/interpreter.jl")
@@ -59,22 +62,6 @@ include("compiler/tools.jl")
 # function __init__()
 #     TimerOutputs.reset_timer!(to)
 # end
-
-end
-
-using .Compiler
-export @device, @gate, @ctrl, @measure, @barrier
-
-# reflections
-export @code_yao, @code_qasm
-
-export gate_count
-
-using .Compiler.QASM: @qasm_str
-export @qasm_str
-
-using .Compiler: Gate
-export Gate
 
 include("runtime/intrinsics.jl")
 

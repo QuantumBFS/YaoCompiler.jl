@@ -2,9 +2,8 @@ module TestParse
 
 using Test
 using YaoCompiler
-using YaoCompiler.Compiler
-using YaoCompiler.Compiler.QASM
-using YaoCompiler.Compiler.QASM.Parse
+using YaoCompiler.QASM
+using YaoCompiler.QASM.Parse
 using RBNF: Token
 
 @testset "qasm parser" begin

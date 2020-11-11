@@ -31,7 +31,7 @@ end
 
 module Gate
 
-using ..Compiler: @intrinsic
+using ..YaoCompiler: @intrinsic
 export X, Y, Z, H, S, T, shift, Rx, Ry, Rz
 
 @intrinsic X

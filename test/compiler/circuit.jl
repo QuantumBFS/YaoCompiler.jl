@@ -2,7 +2,6 @@ module TestMacros
 
 using YaoCompiler
 using YaoCompiler.Gate
-using YaoCompiler.Compiler
 using Test
 
 @device function qft(n::Int)
@@ -55,7 +54,7 @@ end
     m = Foo(1, 2)
     tape = YaoCompiler.@trace m(0.1)
     @test length(tape) == 1
-    @test tape[1] == Expr(:call, YaoCompiler.Compiler.Semantic.ctrl, Gate.shift(0.1), Locations(2), CtrlLocations(1))
+    @test tape[1] == Expr(:call, YaoCompiler.Semantic.ctrl, Gate.shift(0.1), Locations(2), CtrlLocations(1))
 end
 
 end

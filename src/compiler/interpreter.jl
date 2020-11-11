@@ -48,9 +48,9 @@ function Core.Compiler.abstract_eval_statement(interp::YaoInterpreter, @nospecia
         atypes = Core.Compiler.argtypes_to_type(argtypes)
 
         if qt === :gate
-            sf = Compiler.Semantic.gate
+            sf = Semantic.gate
         else
-            sf = Compiler.Semantic.ctrl
+            sf = Semantic.ctrl
         end
 
         callinfo = Core.Compiler.abstract_call_gf_by_type(interp, sf, argtypes, atypes, sv)
@@ -152,7 +152,7 @@ end
 function is_semantic_fn_call(e)
     return e isa Expr && e.head === :call &&
         e.args[1] isa GlobalRef &&
-            e.args[1].mod === YaoCompiler.Compiler.Semantic
+            e.args[1].mod === YaoCompiler.Semantic
 end
 
 function convert_to_quantum_head!(ci::CodeInfo)

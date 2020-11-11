@@ -72,7 +72,7 @@ function code_yao(f, spec::RoutineSpec, args...; optimize::Bool=false, passes=Sy
     ccall(:jl_typeinf_begin, Cvoid, ())
     result = Core.Compiler.InferenceResult(mi)
     world = Core.Compiler.get_world_counter()
-    interp = YaoCompiler.Compiler.YaoInterpreter(;passes=passes)
+    interp = YaoCompiler.YaoInterpreter(;passes=passes)
 
     # NOTE: we need to run optimizer manually on current frame
     # if cache is false
@@ -80,7 +80,7 @@ function code_yao(f, spec::RoutineSpec, args...; optimize::Bool=false, passes=Sy
     Core.Compiler.typeinf(interp, frame)
     if run_optimizer
         opt = OptimizationState(frame, OptimizationParams(interp), interp)
-        Compiler.optimize(opt, YaoOptimizationParams(interp), result.result)
+        YaoCompiler.optimize(opt, YaoOptimizationParams(interp), result.result)
         opt.src.inferred = true
     end
     ccall(:jl_typeinf_end, Cvoid, ())

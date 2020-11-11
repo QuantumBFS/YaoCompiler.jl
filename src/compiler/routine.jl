@@ -123,7 +123,7 @@ Semantic extension for Julia.
 """
 module Semantic
 using ExprTools
-using ..Compiler: DeviceError, Operation, Locations, CtrlLocations
+using ..YaoCompiler: DeviceError, Operation, Locations, CtrlLocations
 
 # semantic stubs
 const SEMANTIC_STUBS = Symbol[]

@@ -69,13 +69,13 @@ function replace_with_execute(ci::CodeInfo)
             t = quantum_stmt_type(stmt)
             if t === :measure
                 cvar, measure =  _extract_measure(stmt)
-                e = Expr(:call, GlobalRef(Compiler, :execute), GlobalRef(Semantic, t), register, measure.args[2:end]...)
+                e = Expr(:call, GlobalRef(YaoCompiler, :execute), GlobalRef(Semantic, t), register, measure.args[2:end]...)
                 if !isnothing(cvar)
                     e = Expr(:(=), cvar, e)
                 end
                 push_stmt!(new, e, codeloc)
             else
-                push_stmt!(new, Expr(:call, GlobalRef(Compiler, :execute), GlobalRef(Semantic, t), register, stmt.args[2:end]...), codeloc)
+                push_stmt!(new, Expr(:call, GlobalRef(YaoCompiler, :execute), GlobalRef(Semantic, t), register, stmt.args[2:end]...), codeloc)
             end
         else
             push_stmt!(new, stmt, codeloc)

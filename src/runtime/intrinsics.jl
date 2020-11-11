@@ -5,31 +5,31 @@ EchoReg() = EchoReg{1}()
 _snameof(x::IntrinsicSpec) = string(routine_name(x))
 _snameof(x::AbstractLocations) = string(x)
 
-function Compiler.execute(::typeof(Compiler.Semantic.main), ::EchoReg, op::IntrinsicSpec)
+function execute(::typeof(Semantic.main), ::EchoReg, op::IntrinsicSpec)
     @info "executing $op"
     return
 end
 
-function Compiler.execute(::typeof(Compiler.Semantic.gate), ::EchoReg, op::IntrinsicSpec, loc::Locations)
+function execute(::typeof(Semantic.gate), ::EchoReg, op::IntrinsicSpec, loc::Locations)
     loc = sprint(print_locations, loc; context=:color=>true)
     @info "executing $loc => $op"
     return
 end
 
-function Compiler.execute(::typeof(Compiler.Semantic.ctrl), ::EchoReg, op::IntrinsicSpec, loc::Locations, ctrl::CtrlLocations)
+function execute(::typeof(Semantic.ctrl), ::EchoReg, op::IntrinsicSpec, loc::Locations, ctrl::CtrlLocations)
     loc = sprint(print_locations, loc; context=:color=>true)
     ctrl = sprint(print_locations, ctrl; context=:color=>true)
     @info "executing @ctrl $(ctrl) $loc => $op"
     return
 end
 
-function Compiler.execute(::typeof(Compiler.Semantic.measure), ::EchoReg, loc::Locations)
+function execute(::typeof(Semantic.measure), ::EchoReg, loc::Locations)
     loc = sprint(print_locations, loc; context=:color=>true)
     @info "executing @measure $loc"
     return 0
 end
 
-function Compiler.execute(::typeof(Compiler.Semantic.barrier), ::EchoReg, loc::Locations)
+function execute(::typeof(Semantic.barrier), ::EchoReg, loc::Locations)
     loc = sprint(print_locations, loc; context=:color=>true)
     @info "executing @barrier $loc"
     return
@@ -76,27 +76,27 @@ function Base.show(io::IO, tape::TraceTape)
     return
 end
 
-function Compiler.execute(stub::typeof(Compiler.Semantic.main), r::TraceTape, op::IntrinsicSpec)
+function execute(stub::typeof(Semantic.main), r::TraceTape, op::IntrinsicSpec)
     push!(r.inst, Expr(:call, stub, op))
     return
 end
 
-function Compiler.execute(stub::typeof(Compiler.Semantic.gate), r::TraceTape, op::IntrinsicSpec, loc::Locations)
+function execute(stub::typeof(Semantic.gate), r::TraceTape, op::IntrinsicSpec, loc::Locations)
     push!(r.inst, Expr(:call, stub, op, loc))
     return
 end
 
-function Compiler.execute(stub::typeof(Compiler.Semantic.ctrl), r::TraceTape, op::IntrinsicSpec, loc::Locations, ctrl::CtrlLocations)
+function execute(stub::typeof(Semantic.ctrl), r::TraceTape, op::IntrinsicSpec, loc::Locations, ctrl::CtrlLocations)
     push!(r.inst, Expr(:call, stub, op, loc, ctrl))
     return
 end
 
-function Compiler.execute(stub::typeof(Compiler.Semantic.barrier), r::TraceTape, loc::Locations)
+function execute(stub::typeof(Semantic.barrier), r::TraceTape, loc::Locations)
     push!(r.inst, Expr(:call, stub, loc))
     return
 end
 
-function Compiler.execute(stub::typeof(Compiler.Semantic.measure), r::TraceTape, locs::Locations)
+function execute(stub::typeof(Semantic.measure), r::TraceTape, locs::Locations)
     error("one should not trace programs contain @measure, since we cannot purify this hybrid program")
 end
 
@@ -107,14 +107,14 @@ function trace_m(ex)
         # execute(gate/ctrl, tape, spec, loc[, ctrl])
         return quote
             $tape = $TraceTape()
-            $(Expr(:call, Compiler.execute, GlobalRef(Compiler.Semantic, ex.args[1]), tape, ex.args[2:end]...))
+            $(Expr(:call, execute, GlobalRef(Semantic, ex.args[1]), tape, ex.args[2:end]...))
             $tape
         end
     else
         # execute(main, tape, spec)
         return quote
             $tape = $TraceTape()
-            $(Expr(:call, Compiler.execute, GlobalRef(Compiler.Semantic, :main), tape, ex))
+            $(Expr(:call, execute, GlobalRef(Semantic, :main), tape, ex))
             $tape
         end
     end
@@ -124,9 +124,9 @@ function echo_m(ex)
     ex isa Expr && ex.head === :call || error("expect a function call")
     tape = gensym(:tape)
     if ex.args[1] in (:gate, :ctrl)
-        return Expr(:call, Compiler.execute, GlobalRef(Compiler.Semantic, ex.args[1]), EchoReg(), ex.args[2:end]...)
+        return Expr(:call, execute, GlobalRef(Semantic, ex.args[1]), EchoReg(), ex.args[2:end]...)
     else
-        return Expr(:call, Compiler.execute, GlobalRef(Compiler.Semantic, :main), EchoReg(), ex)
+        return Expr(:call, execute, GlobalRef(Semantic, :main), EchoReg(), ex)
     end
 end
 

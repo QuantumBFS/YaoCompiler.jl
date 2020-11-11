@@ -2,7 +2,6 @@ module TestUtils
 
 using Test
 using YaoCompiler
-using YaoCompiler.Compiler
 using YaoCompiler.Gate
 
 @device function demo_circ_simp()
@@ -33,7 +32,7 @@ using YaoCompiler.Gate
 end
 
 
-YaoCompiler.Compiler.gate_count(demo_circ_simp())
+YaoCompiler.gate_count(demo_circ_simp())
 
 @testset "gate_count" begin
     @test gate_count(demo_circ_simp()) == Dict(
