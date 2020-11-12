@@ -9,15 +9,15 @@ struct TargetQASMTopLevel <: TargetQASM end
 struct TargetQASMGate <: TargetQASM end
 
 struct RegMap
-    cbits::Dict{Any, Tuple{String, Int}}
-    regs_to_locs::Dict{Int, Vector{Int}}
-    locs_to_reg_addr::Dict{Int, Tuple{Int, Int}}
+    cbits::Dict{Any,Tuple{String,Int}}
+    regs_to_locs::Dict{Int,Vector{Int}}
+    locs_to_reg_addr::Dict{Int,Tuple{Int,Int}}
 end
 
 function RegMap(target, ci::CodeInfo)
-    locs_to_regs = Dict{Int, Int}()
+    locs_to_regs = Dict{Int,Int}()
     # ssa/slot => (name, size)
-    cbits = Dict{Any, Tuple{String, Int}}()
+    cbits = Dict{Any,Tuple{String,Int}}()
 
     for (v, stmt) in enumerate(ci.code)
         if stmt isa ReturnNode && isdefined(stmt, :val) && stmt.val isa SSAValue
@@ -73,14 +73,14 @@ function RegMap(target, ci::CodeInfo)
         end
     end
 
-    regs_to_locs = Dict{Int, Vector{Int}}()
+    regs_to_locs = Dict{Int,Vector{Int}}()
     for (k, r) in locs_to_regs
         locs = get!(regs_to_locs, r, Int[])
         push!(locs, k)
     end
 
     # loc => reg, addr
-    locs_to_reg_addr = Dict{Int, Tuple{Int, Int}}()
+    locs_to_reg_addr = Dict{Int,Tuple{Int,Int}}()
     for (r, locs) in regs_to_locs
         sort!(locs)
         for (k, loc) in enumerate(locs)
@@ -103,12 +103,12 @@ end
 
 mutable struct QASMCodeGenState
     pc::Int
-    stmt
+    stmt::Any
     regmap::RegMap
 
-    name
-    carg_names
-    ssa_cname_map
+    name::Any
+    carg_names::Any
+    ssa_cname_map::Any
 end
 
 function QASMCodeGenState(target::TargetQASMTopLevel, ci::CodeInfo)
@@ -137,21 +137,21 @@ function allocate_new_qreg!(locs_to_regs, locs)
         get!(locs_to_regs, raw, 1)
     else
         k_reg = maximum(get(locs_to_regs, each, 1) for each in locs) + 1
-        
+
         for each in locs
             locs_to_regs[each] = k_reg
         end
     end
 end
 
-function record_locations!(::TargetQASMTopLevel, locs_to_regs::Dict{Int, Int}, locs::Locations)
+function record_locations!(::TargetQASMTopLevel, locs_to_regs::Dict{Int,Int}, locs::Locations)
     for each in locs
         get!(locs_to_regs, each, 1)
     end
     return locs_to_regs
 end
 
-function record_locations!(::TargetQASMGate, locs_to_regs::Dict{Int, Int}, locs::Locations)
+function record_locations!(::TargetQASMGate, locs_to_regs::Dict{Int,Int}, locs::Locations)
     for each in locs
         if !haskey(locs_to_regs, each)
             locs_to_regs[each] = length(keys(locs_to_regs)) + 1
@@ -206,21 +206,23 @@ function codegen(target::TargetQASMTopLevel, ci::CodeInfo)
 
     # allocate registers
     for (k, locs) in st.regmap.regs_to_locs
-        push!(prog, QASM.RegDecl(
-            Token{:reserved}("qreg"),
-            # we probably want to have a better strategy
-            # to avoid potential name conflicts
-            Token{:id}(qreg_name(k)),
-            Token{:int}(string(length(locs)))
-        ))
+        push!(
+            prog,
+            QASM.RegDecl(
+                Token{:reserved}("qreg"),
+                # we probably want to have a better strategy
+                # to avoid potential name conflicts
+                Token{:id}(qreg_name(k)),
+                Token{:int}(string(length(locs))),
+            ),
+        )
     end
 
     for (_, (name, size)) in st.regmap.cbits
-        pushfirst!(prog, QASM.RegDecl(
-            Token{:reserved}("creg"),
-            Token{:id}(name),
-            Token{:int}(string(size))
-        ))
+        pushfirst!(
+            prog,
+            QASM.RegDecl(Token{:reserved}("creg"), Token{:id}(name), Token{:int}(string(size))),
+        )
     end
 
     # NOTE: QASM compatible code won't have
@@ -247,7 +249,7 @@ end
 function gate_name(spec)
     name = string(routine_name(spec))
     if '#' in name
-        name = "__julia_lambda" * replace(name, "#"=>"_")
+        name = "__julia_lambda" * replace(name, "#" => "_")
     end
     return name
 end
@@ -265,12 +267,12 @@ function scan_cargs(ci::CodeInfo)
 
     @assert !isnothing(ci.parent)
     spec = ci.parent.specTypes.parameters[2]
-    tt = Tuple{spec.parameters[1], spec.parameters[2].parameters...}
+    tt = Tuple{spec.parameters[1],spec.parameters[2].parameters...}
     ms = methods(routine_stub, tt)
     length(ms) == 1 || error("ambiguous method call")
     method = first(ms)
     carg_names = split(chop(method.slot_syms), '\0')[3:end]
-    cargs = Dict{Int, String}()
+    cargs = Dict{Int,String}()
 
     for (v, stmt) in enumerate(ci.code)
         name = @match stmt begin
@@ -375,10 +377,7 @@ function codegen_gate(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
         push!(qargs, index_qreg(r, addr, st.regmap))
     end
 
-    return QASM.Instruction(
-        Token{:id}(_qasm_name(name)),
-        cargs, qargs
-    )
+    return QASM.Instruction(Token{:id}(_qasm_name(name)), cargs, qargs)
 end
 
 function codegen_cargs(::TargetQASMTopLevel, ::CodeInfo, @nospecialize(gate), ::QASMCodeGenState)
@@ -393,7 +392,12 @@ function codegen_cargs(::TargetQASMTopLevel, ::CodeInfo, @nospecialize(gate), ::
     end
 end
 
-function codegen_cargs(target::TargetQASMGate, ci::CodeInfo, @nospecialize(gate), st::QASMCodeGenState)
+function codegen_cargs(
+    target::TargetQASMGate,
+    ci::CodeInfo,
+    @nospecialize(gate),
+    st::QASMCodeGenState,
+)
     if gate isa Expr
         # IntrinsicSpec/RoutineSpec take a tuple
         # so we need to find the actual variables
@@ -419,7 +423,9 @@ function codegen_cargs(target::TargetQASMGate, ci::CodeInfo, @nospecialize(gate)
         # non-constant parameters in toplevel is not allowed
         return Any[codegen_exp(target, ci, x, st) for x in gate.variables]
     elseif gate isa IntrinsicRoutine
-        return Any[codegen_exp(target, ci, getfield(gate, each), st) for each in fieldnames(typeof(gate))]
+        return Any[
+            codegen_exp(target, ci, getfield(gate, each), st) for each in fieldnames(typeof(gate))
+        ]
     else
         error("invalid instruction: $gate")
     end
@@ -431,7 +437,7 @@ function codegen_exp(target::TargetQASM, ci::CodeInfo, @nospecialize(stmt), st::
     if stmt isa SlotNumber
         return Token{:id}(string(ci.slotnames[stmt.id]))
     end
-    
+
     if stmt isa SSAValue
         if haskey(st.ssa_cname_map, stmt.id)
             return Token{:id}(st.ssa_cname_map[stmt.id])
@@ -510,15 +516,12 @@ function codegen_ctrl(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
     all(ctrl.configs) || error("inverse ctrl is not supported in QASM backend yet")
     if gate === Intrinsics.X && length(ctrl) == 1 && length(locs) == 1
         qargs = Any[index_qreg(ctrl, st.regmap)..., index_qreg(locs, st.regmap)...]
-        return QASM.Instruction(
-            Token{:id}("CX"),
-            Any[], qargs
-        )
+        return QASM.Instruction(Token{:id}("CX"), Any[], qargs)
     elseif gate === Intrinsics.X && length(ctrl) == 2 && length(locs) == 1
         error(
             "ccx is not valid intrinsic QASM instruction. posssible fix:\n",
             "1. include a qasm stdlib e.g qelib<version>.inc and use ccx gate from it\n",
-            "2. define your own ccx gate via @device using CX and single qubit gate"
+            "2. define your own ccx gate via @device using CX and single qubit gate",
         )
         # ctrl.configs[1] || error("inverse ctrl is not supported in QASM backend yet")
         # qargs = Any[index_qreg(ctrl, st.regmap)..., index_qreg(locs, st.regmap)...]
@@ -550,10 +553,7 @@ function codegen_measure(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
     else
         # by construction the registers are the same
         # and is exactly of size length(locs)
-        return QASM.Measure(
-            QASM.Bit(qreg_name(r)),
-            QASM.Bit(cname, length(locs))
-        )
+        return QASM.Measure(QASM.Bit(qreg_name(r)), QASM.Bit(cname, length(locs)))
     end
 end
 
@@ -561,7 +561,7 @@ function codegen_barrier(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
     locs = obtain_ssa_const(st.stmt.args[2], ci)::Locations
 
     qargs = Any[]
-    args = Dict{Int, Vector{Int}}()
+    args = Dict{Int,Vector{Int}}()
 
     for each in locs
         r, addr = st.regmap.locs_to_reg_addr[each]
@@ -603,7 +603,7 @@ function codegen_ifnot(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
     # move this to validation
     cond_stmt.args[3] isa Int || error("right hand condition must be constant Int for QASM")
     right = cond_stmt.args[3]
-    
+
     # find the first quantum stmt after goto
     pc′ = st.pc + 1
     local stmt′
@@ -637,7 +637,7 @@ function validate(target::TargetQASM, ci::CodeInfo)
             end
         end
         stmt_type = ci.ssavaluetypes[v]
-        
+
     end
 end
 

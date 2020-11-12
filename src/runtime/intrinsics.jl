@@ -11,26 +11,32 @@ function execute(::typeof(Semantic.main), ::EchoReg, op::IntrinsicRoutine)
 end
 
 function execute(::typeof(Semantic.gate), ::EchoReg, op::IntrinsicRoutine, loc::Locations)
-    loc = sprint(print_locations, loc; context=:color=>true)
+    loc = sprint(print_locations, loc; context = :color => true)
     @info "executing $loc => $op"
     return
 end
 
-function execute(::typeof(Semantic.ctrl), ::EchoReg, op::IntrinsicRoutine, loc::Locations, ctrl::CtrlLocations)
-    loc = sprint(print_locations, loc; context=:color=>true)
-    ctrl = sprint(print_locations, ctrl; context=:color=>true)
+function execute(
+    ::typeof(Semantic.ctrl),
+    ::EchoReg,
+    op::IntrinsicRoutine,
+    loc::Locations,
+    ctrl::CtrlLocations,
+)
+    loc = sprint(print_locations, loc; context = :color => true)
+    ctrl = sprint(print_locations, ctrl; context = :color => true)
     @info "executing @ctrl $(ctrl) $loc => $op"
     return
 end
 
 function execute(::typeof(Semantic.measure), ::EchoReg, loc::Locations)
-    loc = sprint(print_locations, loc; context=:color=>true)
+    loc = sprint(print_locations, loc; context = :color => true)
     @info "executing @measure $loc"
     return 0
 end
 
 function execute(::typeof(Semantic.barrier), ::EchoReg, loc::Locations)
-    loc = sprint(print_locations, loc; context=:color=>true)
+    loc = sprint(print_locations, loc; context = :color => true)
     @info "executing @barrier $loc"
     return
 end
@@ -58,7 +64,7 @@ function Base.show(io::IO, tape::TraceTape)
     nstmt = length(tape.inst)
     for i in 1:nstmt
         stmt = tape.inst[i]
-        printstyled(io, nameof(stmt.args[1]); color=:light_blue)
+        printstyled(io, nameof(stmt.args[1]); color = :light_blue)
         print(io, "\t"^2)
 
         for (i, each) in enumerate(stmt.args[2:end])
@@ -86,7 +92,13 @@ function execute(stub::typeof(Semantic.gate), r::TraceTape, op::IntrinsicRoutine
     return
 end
 
-function execute(stub::typeof(Semantic.ctrl), r::TraceTape, op::IntrinsicRoutine, loc::Locations, ctrl::CtrlLocations)
+function execute(
+    stub::typeof(Semantic.ctrl),
+    r::TraceTape,
+    op::IntrinsicRoutine,
+    loc::Locations,
+    ctrl::CtrlLocations,
+)
     push!(r.inst, Expr(:call, stub, op, loc, ctrl))
     return
 end

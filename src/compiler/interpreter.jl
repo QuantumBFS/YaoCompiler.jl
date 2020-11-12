@@ -10,23 +10,37 @@ end
 
 default_passes() = [:zx]
 
-YaoInterpreter(;passes::Vector{Symbol}=default_passes()) = YaoInterpreter(Core.Compiler.NativeInterpreter(), passes)
+YaoInterpreter(; passes::Vector{Symbol} = default_passes()) =
+    YaoInterpreter(Core.Compiler.NativeInterpreter(), passes)
 
 InferenceParams(interp::YaoInterpreter) = InferenceParams(interp.native_interpreter)
 OptimizationParams(interp::YaoInterpreter) = OptimizationParams(interp.native_interpreter)
-YaoOptimizationParams(interp::YaoInterpreter) = YaoOptimizationParams(OptimizationParams(interp), interp.passes)
+YaoOptimizationParams(interp::YaoInterpreter) =
+    YaoOptimizationParams(OptimizationParams(interp), interp.passes)
 Core.Compiler.get_world_counter(interp::YaoInterpreter) = get_world_counter(interp.native_interpreter)
-Core.Compiler.get_inference_cache(interp::YaoInterpreter) = get_inference_cache(interp.native_interpreter)
+Core.Compiler.get_inference_cache(interp::YaoInterpreter) =
+    get_inference_cache(interp.native_interpreter)
 Core.Compiler.code_cache(interp::YaoInterpreter) = Core.Compiler.code_cache(interp.native_interpreter)
-Core.Compiler.may_optimize(interp::YaoInterpreter) = Core.Compiler.may_optimize(interp.native_interpreter)
-Core.Compiler.may_discard_trees(interp::YaoInterpreter) = Core.Compiler.may_discard_trees(interp.native_interpreter)
-Core.Compiler.may_compress(interp::YaoInterpreter) = Core.Compiler.may_compress(interp.native_interpreter)
-Core.Compiler.unlock_mi_inference(interp::YaoInterpreter, mi::Core.MethodInstance) = Core.Compiler.unlock_mi_inference(interp.native_interpreter, mi)
-Core.Compiler.lock_mi_inference(interp::YaoInterpreter, mi::Core.MethodInstance) = Core.Compiler.lock_mi_inference(interp.native_interpreter, mi)
-Core.Compiler.add_remark!(interp::YaoInterpreter, st::Core.Compiler.InferenceState, msg::String) = nothing # println(msg)
+Core.Compiler.may_optimize(interp::YaoInterpreter) =
+    Core.Compiler.may_optimize(interp.native_interpreter)
+Core.Compiler.may_discard_trees(interp::YaoInterpreter) =
+    Core.Compiler.may_discard_trees(interp.native_interpreter)
+Core.Compiler.may_compress(interp::YaoInterpreter) =
+    Core.Compiler.may_compress(interp.native_interpreter)
+Core.Compiler.unlock_mi_inference(interp::YaoInterpreter, mi::Core.MethodInstance) =
+    Core.Compiler.unlock_mi_inference(interp.native_interpreter, mi)
+Core.Compiler.lock_mi_inference(interp::YaoInterpreter, mi::Core.MethodInstance) =
+    Core.Compiler.lock_mi_inference(interp.native_interpreter, mi)
+Core.Compiler.add_remark!(interp::YaoInterpreter, st::Core.Compiler.InferenceState, msg::String) =
+    nothing # println(msg)
 
-function Core.Compiler.abstract_call(interp::YaoInterpreter, fargs::Union{Nothing,Vector{Any}}, argtypes::Vector{Any},
-    sv::InferenceState, max_methods::Int = InferenceParams(interp).MAX_METHODS)
+function Core.Compiler.abstract_call(
+    interp::YaoInterpreter,
+    fargs::Union{Nothing,Vector{Any}},
+    argtypes::Vector{Any},
+    sv::InferenceState,
+    max_methods::Int = InferenceParams(interp).MAX_METHODS,
+)
 
     ft = argtypes[1]
     if isa(ft, Const)
@@ -42,7 +56,14 @@ function Core.Compiler.abstract_call(interp::YaoInterpreter, fargs::Union{Nothin
             Core.Compiler.add_remark!(interp, sv, "Could not identify method table for call")
             return Core.Compiler.CallMeta(Any, false)
         end
-        return Core.Compiler.abstract_call_gf_by_type(interp, nothing, argtypes, argtypes_to_type(argtypes), sv, max_methods)
+        return Core.Compiler.abstract_call_gf_by_type(
+            interp,
+            nothing,
+            argtypes,
+            argtypes_to_type(argtypes),
+            sv,
+            max_methods,
+        )
     end
 
     allconst = true
@@ -71,10 +92,14 @@ function Core.Compiler.abstract_call(interp::YaoInterpreter, fargs::Union{Nothin
     return Core.Compiler.abstract_call_known(interp, f, fargs, argtypes, sv, max_methods)
 end
 
-function abstract_call_quantum(interp::AbstractInterpreter, @nospecialize(f),
-    fargs::Union{Nothing,Vector{Any}}, argtypes::Vector{Any},
+function abstract_call_quantum(
+    interp::AbstractInterpreter,
+    @nospecialize(f),
+    fargs::Union{Nothing,Vector{Any}},
+    argtypes::Vector{Any},
     sv::InferenceState,
-    max_methods::Int = InferenceParams(interp).MAX_METHODS)
+    max_methods::Int = InferenceParams(interp).MAX_METHODS,
+)
 
     if f === Semantic.measure
         return Core.Compiler.CallMeta(Int, nothing)
@@ -105,13 +130,15 @@ function Core.Compiler.typeinf(interp::YaoInterpreter, frame::InferenceState)
         @assert !(caller.dont_work_on_me)
         caller.dont_work_on_me = true
     end
-    
+
     for caller in frames
         Core.Compiler.finish(caller, interp)
     end
     # collect results for the new expanded frame
-    results = Tuple{InferenceResult, Bool}[ ( frames[i].result,
-        frames[i].cached || frames[i].parent !== nothing ) for i in 1:length(frames) ]
+    results = Tuple{InferenceResult,Bool}[
+        (frames[i].result, frames[i].cached || frames[i].parent !== nothing)
+        for i in 1:length(frames)
+    ]
 
     valid_worlds = frame.valid_worlds
     cached = frame.cached
@@ -121,7 +148,8 @@ function Core.Compiler.typeinf(interp::YaoInterpreter, frame::InferenceState)
             if opt isa OptimizationState
                 run_optimizer = doopt && Core.Compiler.may_optimize(interp)
                 if run_optimizer
-                    if !(frame.result.linfo.def.sig isa UnionAll) && parentmodule(frame.result.linfo.def.sig.parameters[1]) === Semantic
+                    if !(frame.result.linfo.def.sig isa UnionAll) &&
+                       parentmodule(frame.result.linfo.def.sig.parameters[1]) === Semantic
                         optimize(opt, YaoOptimizationParams(interp), caller.result)
                     else
                         Core.Compiler.optimize(opt, OptimizationParams(interp), caller.result)
@@ -149,7 +177,8 @@ function Core.Compiler.typeinf(interp::YaoInterpreter, frame::InferenceState)
         end
     end
     if Core.Compiler.last(valid_worlds) == Core.Compiler.get_world_counter()
-        valid_worlds = Core.Compiler.WorldRange(Core.Compiler.first(valid_worlds), Core.Compiler.typemax(UInt))
+        valid_worlds =
+            Core.Compiler.WorldRange(Core.Compiler.first(valid_worlds), Core.Compiler.typemax(UInt))
     end
     for caller in frames
         caller.valid_worlds = valid_worlds
@@ -172,9 +201,10 @@ function Core.Compiler.typeinf(interp::YaoInterpreter, frame::InferenceState)
 end
 
 function is_semantic_fn_call(e)
-    return e isa Expr && e.head === :call &&
-        e.args[1] isa GlobalRef &&
-            e.args[1].mod === YaoCompiler.Semantic
+    return e isa Expr &&
+           e.head === :call &&
+           e.args[1] isa GlobalRef &&
+           e.args[1].mod === YaoCompiler.Semantic
 end
 
 function convert_to_quantum_head!(ci::CodeInfo)
