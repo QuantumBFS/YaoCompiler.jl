@@ -32,7 +32,9 @@ Other types will be converted to the storage type via `Tuple`.
 struct Locations{T<:LocationStorageTypes} <: AbstractLocations
     storage::T
 
-    Locations(x::T) where {T<:LocationStorageTypes} = new{T}(x)
+    function Locations(x::T) where {T<:LocationStorageTypes}
+        new{T}(x)
+    end
 end
 
 # skip it if x is a location
@@ -77,7 +79,7 @@ end
 @inline unsafe_mapping(parent::Locations{UnitRange{Int}}, sub::Locations{UnitRange{Int}}) =
     Locations(@inbounds parent[sub.storage])
 
-map_error(parent, sub) = throw(LocationError("got $sub in parent space $parent"))
+@inline map_error(parent, sub) = throw(LocationError("got $sub in parent space $parent"))
 
 @inline function map_check(parent::Locations{Int}, sub::Locations{Int})
     sub.storage == 1 || map_error(parent, sub)
@@ -132,6 +134,8 @@ end
 struct CtrlLocations{T<:LocationStorageTypes} <: AbstractLocations
     storage::Locations{T}
     configs::BitVector
+
+    CtrlLocations(storage::Locations{T}, configs::BitVector) where T = new{T}(storage, configs)
 end
 
 # skip itself
@@ -199,7 +203,7 @@ end
 # NOTE: CtrlLocations can not be mapped by Locations
 @inline unsafe_mapping(parent::Locations, sub::CtrlLocations) =
     CtrlLocations(unsafe_mapping(parent, sub.storage), sub.configs)
-@inline map_check(parent::Locations, sub::CtrlLocations) = map_check(parent, sub.storage)
+@inline  map_check(parent::Locations, sub::CtrlLocations) = map_check(parent, sub.storage)
 
 Base.:(==)(l1::CtrlLocations, l2::CtrlLocations) =
     (l1.storage == l2.storage) && (l1.configs == l2.configs)

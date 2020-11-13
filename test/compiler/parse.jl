@@ -75,3 +75,99 @@ end
 end
 
 end # TestParse
+
+
+using YaoCompiler
+using YaoCompiler.Intrinsics
+
+@device function u1(theta)
+    1 => Rz(theta)
+end
+
+@device function cu1(lambda)
+    2 => u1(lambda/2)
+    # @ctrl 1 2=>X
+    1 => u1(-lambda/2)
+    # @ctrl 1 2=>X
+    1 => u1(lambda/2)
+    return
+end
+
+# this is broken
+@device function circuit()
+    (1, 2) => cu1(0.1)
+end
+
+@code_yao optimize=true cu1(1.0)
+
+spec = cu1(0.1)
+args = (Locations(1, 2), )
+f = YaoCompiler.Semantic.gate
+args_t = Base.typesof(spec, args...)
+atypes = Base.typesof(f, spec, args...)
+matches = methods(f, args_t)
+length(matches) == 1 || error("call is ambiguous")
+method = first(matches)
+mi = Core.Compiler.specialize_method(method, atypes, Core.svec())
+
+
+result = Core.Compiler.InferenceResult(mi, Any[Core.Const(f), Core.Const(spec), Core.Const.(args)...])
+world = Core.Compiler.get_world_counter()
+# interp = Core.Compiler.NativeInterpreter(inf_params=Core.Compiler.InferenceParams(aggressive_constant_propagation=true))
+
+interp = YaoCompiler.YaoInterpreter(Core.Compiler.NativeInterpreter(inf_params=Core.Compiler.InferenceParams(aggressive_constant_propagation=false)), Symbol[])
+# interp = YaoCompiler.YaoInterpreter(;passes=Symbol[])
+frame = Core.Compiler.InferenceState(result, #=cached=# false, interp)
+Core.Compiler.typeinf(interp, frame)
+frame.src
+
+opt = Core.Compiler.OptimizationState(frame, Core.Compiler.OptimizationParams(interp), interp)
+def = opt.linfo.def
+nargs = Int(opt.nargs) - 1
+ci = opt.src
+sv = opt
+preserve_coverage = Core.Compiler.coverage_enabled(sv.mod)
+ir = Core.Compiler.convert_to_ircode(ci, Core.Compiler.copy_exprargs(ci.code), preserve_coverage, nargs, sv)
+ir = Core.Compiler.slot2reg(ir, ci, nargs, sv)
+ir = Core.Compiler.compact!(ir)
+# ir = Core.Compiler.ssa_inlining_pass!(ir, ir.linetable, sv.inlining, ci.propagate_inbounds)
+
+state = sv.inlining
+linetable = ir.linetable
+propagate_inbounds = ci.propagate_inbounds
+todo = Core.Compiler.assemble_inline_todo!(ir, state)
+ir
+ir = Core.Compiler.batch_inline!(todo, ir, linetable, propagate_inbounds)
+
+compact = Core.Compiler.IncrementalCompact(ir, false)
+for _ in compact; end
+
+ir = Core.Compiler.compact!(ir)
+ir = Core.Compiler.getfield_elim_pass!(ir)
+ir = Core.Compiler.adce_pass!(ir)
+ir = Core.Compiler.type_lift_pass!(ir)
+ir = Core.Compiler.compact!(ir)
+
+ir = YaoCompiler.group_quantum_stmts!(ir)
+ir = YaoCompiler.propagate_consts_bb!(ir)
+ir = YaoCompiler.compact!(ir)
+
+ir = YaoCompiler.elim_location_mapping!(ir)
+
+
+ir = run_passes(opt.src, nargs, opt, params.passes)
+
+YaoCompiler.optimize(opt, YaoOptimizationParams(interp), result.result)
+opt.src.inferred = true
+
+
+ast = @code_qasm gate=true cu3(0.1, 0.2, 0.3)
+ci, = @code_yao optimize=true cu3(0.1, 0.2, 0.3)
+
+spec = cu3(0.1, 0.2, 0.3)
+
+@code_yao gate(spec, Locations(1:4))
+@code_yao optimize=true circuit()
+
+target = YaoCompiler.TargetQobjQASM()
+YaoCompiler.codegen(target, ci)

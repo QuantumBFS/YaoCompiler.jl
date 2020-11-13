@@ -9,6 +9,12 @@ Base.setindex!(ic::Core.Compiler.Instruction, v, idx) = Core.Compiler.setindex!(
 Base.getindex(ir::Core.Compiler.IRCode, idx) = Core.Compiler.getindex(ir, idx)
 Base.setindex!(ir::Core.Compiler.IRCode, v, idx) = Core.Compiler.setindex!(ir, v, idx)
 
+Base.getindex(ref::UseRef) = Core.Compiler.getindex(ref)
+Base.iterate(uses::UseRefIterator) = Core.Compiler.iterate(uses)
+Base.iterate(uses::UseRefIterator, st) = Core.Compiler.iterate(uses, st)
+
+Base.iterate(p::Core.Compiler.Pair) = Core.Compiler.iterate(p)
+Base.iterate(p::Core.Compiler.Pair, st) = Core.Compiler.iterate(p, st)
 
 # TODO: we might need a better interface for this when we have more passes
 function run_passes(ci::CodeInfo, nargs::Int, sv::OptimizationState, passes::Vector{Symbol})
@@ -23,29 +29,31 @@ function run_passes(ci::CodeInfo, nargs::Int, sv::OptimizationState, passes::Vec
     ir = adce_pass!(ir)
     ir = type_lift_pass!(ir)
     ir = compact!(ir)
+    # ir = elim_location_mapping!(ir)
+    ir = compact!(ir)
     
     # group quantum statements so we can work on
     # larger quantum circuits before we start optimizations
-    ir = group_quantum_stmts!(ir)
-    ir = propagate_consts_bb!(ir)
-    ir = compact!(ir)
+    # ir = group_quantum_stmts!(ir)
+    # ir = propagate_consts_bb!(ir)
+    # ir = compact!(ir)
 
-    # run quantum passes
-    if !isempty(passes)
-        ir = convert_to_yaoir(ir)
+    # # run quantum passes
+    # if !isempty(passes)
+    #     ir = convert_to_yaoir(ir)
         
-        if :zx in passes
-            ir = run_zx_passes(ir)::YaoIR
-        end
+    #     if :zx in passes
+    #         ir = run_zx_passes(ir)::YaoIR
+    #     end
 
-        ir = ir.ir
-    end
+    #     ir = ir.ir
+    # end
 
-    ir = compact!(ir)
-    # insert our own passes after Julia's pass
-    if Core.Compiler.JLOptions().debug_level == 2
-        @timeit "verify 3" (verify_ir(ir); verify_linetable(ir.linetable))
-    end
+    # ir = compact!(ir)
+    # # insert our own passes after Julia's pass
+    # if Core.Compiler.JLOptions().debug_level == 2
+    #     @timeit "verify 3" (verify_ir(ir); verify_linetable(ir.linetable))
+    # end
     return ir
 end
 
@@ -142,6 +150,23 @@ function optimize(opt::OptimizationState, params::YaoOptimizationParams, @nospec
         end
     end
     nothing
+end
+
+function elim_location_mapping!(ir::IRCode)
+    compact = Core.Compiler.IncrementalCompact(ir)
+    for ((_, idx), stmt) in compact
+        isa(stmt, Expr) || continue
+        stmt.head === :invoke && stmt.args[2] === maploc || continue
+
+        @show stmt.args[3]
+        if stmt.args[3] isa AbstractLocations &&
+                stmt.args[4] isa AbstractLocations
+            @show stmt
+            # TODO: insert unreachable if this errors
+            compact[idx] = Expr(:test)
+        end
+    end
+    return Core.Compiler.finish(compact)
 end
 
 function group_quantum_stmts_perm(ir::IRCode)
@@ -426,48 +451,6 @@ end
 function convert_to_yaoir(ir::IRCode)
     quantum_blocks = compute_quantum_blocks(ir)
     return YaoIR(ir, quantum_blocks)
-end
-
-function count_qubits(ir::YaoIR)
-    min_loc, max_loc = 0, 0
-    for (v, e) in enumerate(ir.ir.stmts.inst)
-        minmax = find_minmax_locations(e, ir)
-
-        # non-constant location
-        if minmax === false
-            return
-        end
-
-        if !isnothing(minmax)
-            min_loc = min(minmax[1], min_loc)
-            max_loc = max(minmax[2], max_loc)
-        end
-    end
-    return max_loc - min_loc
-end
-
-function find_minmax_locations(@nospecialize(e), ir::YaoIR)
-    if e isa Locations
-        return minimum(e.storage), maximum(e.storage)
-    elseif e isa Expr
-        min_loc, max_loc = 0, 0
-        for each in e.args
-            minmax = find_minmax_locations(each, ir)
-            if isnothing(minmax)
-                continue
-            elseif minmax === false
-                return false
-            else
-                min_loc = min(minmax[1], min_loc)
-                max_loc = max(minmax[2], max_loc)
-            end
-        end
-        return min_loc, max_loc
-    elseif e isa SSAValue && ir.ir.stmts.type[e.id] <: AbstractLocations
-        return false
-    else
-        return
-    end
 end
 
 function map_virtual_location_expr(@nospecialize(e), regmap)
