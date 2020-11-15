@@ -47,7 +47,7 @@ function run_passes(ci::CodeInfo, nargs::Int, sv::OptimizationState, passes::Vec
     # run quantum passes
     if !isempty(passes)
         ir = convert_to_yaoir(ir)
-        
+
         if :zx in passes
             ir = run_zx_passes(ir)::YaoIR
         end
@@ -71,7 +71,10 @@ function optimize(opt::OptimizationState, params::YaoOptimizationParams, @nospec
     def = opt.linfo.def
     nargs = Int(opt.nargs) - 1
     ir = run_passes(opt.src, nargs, opt, params.passes)
-    force_noinline = Core.Compiler._any(@nospecialize(x) -> Core.Compiler.isexpr(x, :meta) && x.args[1] === :noinline, ir.meta)
+    force_noinline = Core.Compiler._any(
+        @nospecialize(x) -> Core.Compiler.isexpr(x, :meta) && x.args[1] === :noinline,
+        ir.meta,
+    )
 
     # compute inlining and other related optimizations
     if (isa(result, Const) || isconstType(result))
@@ -85,7 +88,8 @@ function optimize(opt::OptimizationState, params::YaoOptimizationParams, @nospec
             for i in 1:length(ir.stmts)
                 node = ir.stmts[i]
                 stmt = node[:inst]
-                if Core.Compiler.stmt_affects_purity(stmt, ir) && !Core.Compiler.stmt_effect_free(stmt, node[:type], ir, ir.sptypes)
+                if Core.Compiler.stmt_affects_purity(stmt, ir) &&
+                   !Core.Compiler.stmt_effect_free(stmt, node[:type], ir, ir.sptypes)
                     proven_pure = false
                     break
                 end
@@ -150,7 +154,7 @@ function optimize(opt::OptimizationState, params::YaoOptimizationParams, @nospec
             end
             if opt.src.inlineable
                 # For functions declared @inline, increase the cost threshold 20x
-                bonus += params.inline_cost_threshold*19
+                bonus += params.inline_cost_threshold * 19
             end
             opt.src.inlineable = isinlineable(def, opt, params, union_penalties, bonus)
         end
@@ -189,7 +193,7 @@ function group_quantum_stmts_perm(ir::IRCode)
 
     append!(perms, cstmts_tape)
     append!(perms, qstmts_tape)
-    
+
     return perms # permute_stmts(ci, perms)
 end
 
@@ -249,7 +253,7 @@ function replace_from_perm(stmt, perm)
     stmt isa Core.SSAValue && return Core.SSAValue(findfirst(isequal(stmt.id), perm))
 
     if stmt isa Expr
-        return Expr(stmt.head, map(x->replace_from_perm(x, perm), stmt.args)...)
+        return Expr(stmt.head, map(x -> replace_from_perm(x, perm), stmt.args)...)
     else
         return stmt
     end
@@ -430,7 +434,7 @@ function map_virtual_location(@nospecialize(loc), regmap)
         return loc
     else
         # TODO: use a custom type
-        regmap[length(keys(regmap)) + 1] = loc
+        regmap[length(keys(regmap))+1] = loc
         return Locations
     end
 end
@@ -496,38 +500,53 @@ function run_zx_passes(ir::YaoIR)
                 e = Expr(:invoke, mi, Semantic.gate, spec, Locations(g.loc))
             elseif g.name === :CNOT
                 mi = specialize_ctrl(typeof(YaoCompiler.X), Locations{Int}, CtrlLocations{Int})
-                e = Expr(:invoke, mi, Semantic.ctrl, YaoCompiler.X, Locations(g.loc), CtrlLocations(g.ctrl))
+                e = Expr(
+                    :invoke,
+                    mi,
+                    Semantic.ctrl,
+                    YaoCompiler.X,
+                    Locations(g.loc),
+                    CtrlLocations(g.ctrl),
+                )
             elseif g.name === :CZ
                 mi = specialize_ctrl(typeof(YaoCompiler.Z), Locations{Int}, CtrlLocations{Int})
-                e = Expr(:invoke, mi, Semantic.ctrl, YaoCompiler.Z, Locations(g.loc), CtrlLocations(g.ctrl))
+                e = Expr(
+                    :invoke,
+                    mi,
+                    Semantic.ctrl,
+                    YaoCompiler.Z,
+                    Locations(g.loc),
+                    CtrlLocations(g.ctrl),
+                )
             else
                 error("unknown gate $g")
             end
             Core.Compiler.insert_node!(compact, SSAValue(first_terminator), Nothing, e)
         end
     end
-    for _ in compact; end
+    for _ in compact
+    end
     new = Core.Compiler.finish(compact)
     return YaoIR(new, compute_quantum_blocks(new))
 end
 
 function specialize_gate(spec, loc)
-    atypes = Tuple{typeof(Semantic.gate), spec, loc}
+    atypes = Tuple{typeof(Semantic.gate),spec,loc}
     if spec <: IntrinsicRoutine
-        method = first(methods(Semantic.gate, Tuple{IntrinsicRoutine, Locations}))
+        method = first(methods(Semantic.gate, Tuple{IntrinsicRoutine,Locations}))
     elseif spec <: RoutineSpec
-        method = first(methods(Semantic.gate, Tuple{RoutineSpec, Locations}))
+        method = first(methods(Semantic.gate, Tuple{RoutineSpec,Locations}))
     end
 
     return Core.Compiler.specialize_method(method, atypes, Core.svec())
 end
 
 function specialize_ctrl(spec, loc, ctrl)
-    atypes = Tuple{typeof(Semantic.ctrl), spec, loc, ctrl}
+    atypes = Tuple{typeof(Semantic.ctrl),spec,loc,ctrl}
     if spec <: IntrinsicRoutine
-        method = first(methods(Semantic.ctrl, Tuple{IntrinsicRoutine, Locations, CtrlLocations}))
+        method = first(methods(Semantic.ctrl, Tuple{IntrinsicRoutine,Locations,CtrlLocations}))
     elseif spec <: RoutineSpec
-        method = first(methods(Semantic.ctrl, Tuple{RoutineSpec, Locations, CtrlLocations}))
+        method = first(methods(Semantic.ctrl, Tuple{RoutineSpec,Locations,CtrlLocations}))
     end
 
     return Core.Compiler.specialize_method(method, atypes, Core.svec())
@@ -545,10 +564,10 @@ function zx_push_gate!(qc::QCircuit, gate::IntrinsicRoutine, locs::Locations)
             push_gate!(qc, QGate(:X, each))
             push_gate!(qc, QGate(:Z, each))
         elseif name in (:Rz, :Rx, :shift)
-            push_gate!(qc, QGate(name, each; param=gate.variables[1]))
+            push_gate!(qc, QGate(name, each; param = gate.variables[1]))
         elseif name === :Ry
             push_gate!(qc, QGate(:Sdag, each))
-            push_gate!(qc, QGate(:Rx, each; param=gate.variables[1]))
+            push_gate!(qc, QGate(:Rx, each; param = gate.variables[1]))
             push_gate!(qc, QGate(:S, each))
         else
             return false
@@ -563,7 +582,7 @@ function zx_push_gate!(qc::QCircuit, gate::IntrinsicRoutine, locs::Locations, ct
 
     for each in locs
         if name === :Z
-            push_gate!(qc, QGate(:CZ, each; ctrl=ctrl))
+            push_gate!(qc, QGate(:CZ, each; ctrl = ctrl))
         elseif name === :X
             if ctrl isa Tuple && length(ctrl) == 2
                 a, b = ctrl

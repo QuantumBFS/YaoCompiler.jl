@@ -15,7 +15,7 @@ mutable struct VirtualRegister
 end
 
 mutable struct RegisterRecord
-    map::Dict{String, VirtualRegister}
+    map::Dict{String,VirtualRegister}
     nqubits::Int
     ncbits::Int
 end
@@ -28,13 +28,13 @@ end
 Base.getindex(x::RegisterRecord, key) = x.map[key]
 Base.getindex(x::VirtualRegister, xs...) = x.address[xs...]
 
-RegisterRecord() = RegisterRecord(Dict{String, UnitRange{Int}}(), 0, 0)
+RegisterRecord() = RegisterRecord(Dict{String,UnitRange{Int}}(), 0, 0)
 GateRegisterRecord() = GateRegisterRecord(Dict(), 0)
 
 struct Ctx
     m::Module
     source::LineNumberNode
-    record
+    record::Any
 end
 
 # tokens don't need context
@@ -124,10 +124,7 @@ function transpile(m::Module, l::LineNumberNode, ast::MainProgram)
     # create an anoymous routine
     # if there are global statements
     if !isempty(body.args)
-        def = Dict{Symbol, Any}(
-            :name => gensym(:qasm),
-            :body => body,
-        )
+        def = Dict{Symbol,Any}(:name => gensym(:qasm), :body => body)
         push!(code.args, YaoCompiler.device_def(def))
     end
     return code
@@ -144,7 +141,7 @@ function transpile(ctx::Ctx, stmt::Types.Gate)
         push!(body.args, transpile(new_ctx, each))
     end
 
-    def = Dict(:name=>name, :args=>args, :body=>body)
+    def = Dict(:name => name, :args => args, :body => body)
     return YaoCompiler.device_def(def)
 end
 
@@ -159,22 +156,33 @@ function transpile_gate_registers(stmt::Vector)
 end
 
 semantic_gate(gate, locs) = Expr(:call, GlobalRef(YaoCompiler.Semantic, :gate), gate, locs)
-semantic_ctrl(gate, locs, ctrl) = Expr(:call, GlobalRef(YaoCompiler.Semantic, :ctrl), gate, locs, ctrl)
+semantic_ctrl(gate, locs, ctrl) =
+    Expr(:call, GlobalRef(YaoCompiler.Semantic, :ctrl), gate, locs, ctrl)
 
 function transpile(ctx::Ctx, stmt::UGate)
     code = Expr(:block)
     locs = transpile(ctx, stmt.qarg)
-    push!(code.args,
-        semantic_gate(Expr(:call, GlobalRef(Intrinsics, :Rz), transpile(ctx, stmt.z1)), locs))
-    push!(code.args,
-        semantic_gate(Expr(:call, GlobalRef(Intrinsics, :Ry), transpile(ctx, stmt.y)), locs))
-    push!(code.args,
-        semantic_gate(Expr(:call, GlobalRef(Intrinsics, :Rz), transpile(ctx, stmt.z2)), locs))
+    push!(
+        code.args,
+        semantic_gate(Expr(:call, GlobalRef(Intrinsics, :Rz), transpile(ctx, stmt.z1)), locs),
+    )
+    push!(
+        code.args,
+        semantic_gate(Expr(:call, GlobalRef(Intrinsics, :Ry), transpile(ctx, stmt.y)), locs),
+    )
+    push!(
+        code.args,
+        semantic_gate(Expr(:call, GlobalRef(Intrinsics, :Rz), transpile(ctx, stmt.z2)), locs),
+    )
     return code
 end
 
 function transpile(ctx::Ctx, stmt::CXGate)
-    return semantic_ctrl(GlobalRef(Intrinsics, :X), transpile(ctx, stmt.qarg), CtrlLocations(transpile(ctx, stmt.ctrl)))
+    return semantic_ctrl(
+        GlobalRef(Intrinsics, :X),
+        transpile(ctx, stmt.qarg),
+        CtrlLocations(transpile(ctx, stmt.ctrl)),
+    )
 end
 
 function transpile(ctx::Ctx, stmt::IfStmt)
@@ -192,9 +200,10 @@ function transpile(ctx::Ctx, stmt::Measure)
 end
 
 function transpile(ctx::Ctx, stmt::Barrier)
-    return Expr(:call,
+    return Expr(
+        :call,
         GlobalRef(YaoCompiler.Semantic, :barrier),
-        transpile_locations(ctx, stmt.qargs)
+        transpile_locations(ctx, stmt.qargs),
     )
 end
 
@@ -248,7 +257,7 @@ function transpile(ctx::Ctx, stmt::Bit)
             return Locations(r[:])
         else
             address = transpile(stmt.address)
-            return Locations(r[address + 1])
+            return Locations(r[address+1])
         end
     else
         return Locations(record.map[stmt.name.str])
@@ -260,7 +269,7 @@ transpile(ctx::Ctx, stmt::Negative) = Expr(:call, -, transpile(ctx, stmt.value))
 function transpile(ctx::Ctx, stmt::Tuple)
     length(stmt) == 3 || throw(Meta.ParseError("unrecognized expression: $stmt"))
     stmt[2]::RBNF.Token
-    if stmt[2].str in ("+" , "-" , "*" , "/")
+    if stmt[2].str in ("+", "-", "*", "/")
         return Expr(:call, Symbol(stmt[2].str), transpile(ctx, stmt[1]), transpile(ctx, stmt[3]))
     else
         throw(Meta.ParseError("unrecognized expression: $stmt"))

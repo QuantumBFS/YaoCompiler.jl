@@ -31,12 +31,27 @@ using Core.Compiler: get_world_counter, get_inference_cache, may_optimize,
     userefs, UseRefIterator, UseRef, MethodResultPure, is_pure_intrinsic_infer, intrinsic_nothrow,
     quoted, anymap,
     # Julia passes
-    compact!, ssa_inlining_pass!, getfield_elim_pass!, adce_pass!, type_lift_pass!,
-    verify_linetable, verify_ir, slot2reg
+    compact!,
+    ssa_inlining_pass!,
+    getfield_elim_pass!,
+    adce_pass!,
+    type_lift_pass!,
+    verify_linetable,
+    verify_ir,
+    slot2reg
 
 using Base.Meta: ParseError
 
-export Routine, GenericRoutine, IntrinsicRoutine, RoutineSpec, IntrinsicSpec, @ctrl, @measure, @gate, @barrier, @device
+export Routine,
+    GenericRoutine,
+    IntrinsicRoutine,
+    RoutineSpec,
+    IntrinsicSpec,
+    @ctrl,
+    @measure,
+    @gate,
+    @barrier,
+    @device
 export routine_name
 
 include("compiler/patch.jl")

@@ -1,4 +1,4 @@
-const compilecache = Dict{UInt, Any}()
+const compilecache = Dict{UInt,Any}()
 const operation_annotation_color = :light_black
 
 """
@@ -45,30 +45,36 @@ end
 
 function Base.show(io::IO, ::MIME"text/plain", x::IntrinsicRoutine)
     print_routine(io, x)
-    printstyled(io, " (intrinsic operation)"; color=operation_annotation_color)
+    printstyled(io, " (intrinsic operation)"; color = operation_annotation_color)
 end
 
-function Base.show(io::IO, fn::GenericRoutine{name}) where name
+function Base.show(io::IO, fn::GenericRoutine{name}) where {name}
     print(io, name)
 end
 
-function Base.show(io::IO, ::MIME"text/plain", fn::GenericRoutine{name}) where name
+function Base.show(io::IO, ::MIME"text/plain", fn::GenericRoutine{name}) where {name}
     print(io, name)
-    printstyled(io, " (generic routine with ", length(methods(fn).ms), " methods)"; color=operation_annotation_color)
+    printstyled(
+        io,
+        " (generic routine with ",
+        length(methods(fn).ms),
+        " methods)";
+        color = operation_annotation_color,
+    )
 end
 
 # NOTE: kwargs is not supported for now
-struct RoutineSpec{P, Vars} <: Operation
+struct RoutineSpec{P,Vars} <: Operation
     parent::P
     variables::Vars
 
     function RoutineSpec(parent, vars...)
-        new{typeof(parent), typeof(vars)}(parent, vars)
+        new{typeof(parent),typeof(vars)}(parent, vars)
     end
 end
 
 Base.parent(x::RoutineSpec) = x.parent
-Base.:(==)(::GenericRoutine{A}, ::GenericRoutine{A}) where A = true
+Base.:(==)(::GenericRoutine{A}, ::GenericRoutine{A}) where {A} = true
 
 # NOTE: the reason we don't use a gensym
 # here for stub function is 
@@ -77,7 +83,7 @@ struct RoutineStub end
 
 const routine_stub = RoutineStub()
 
-struct Adjoint{P <: Operation} <: Operation
+struct Adjoint{P<:Operation} <: Operation
     parent::P
 end
 
@@ -86,10 +92,10 @@ Base.adjoint(x::Adjoint) = x.parent
 
 routine_name(::Type) = nothing
 routine_name(x) = routine_name(typeof(x))
-routine_name(::Type{<:GenericRoutine{name}}) where name = name
-routine_name(::Type{T}) where {T <: IntrinsicRoutine} = nameof(T)
-routine_name(::Type{<:RoutineSpec{P}}) where P = routine_name(P)
-routine_name(::Type{<:Adjoint{P}}) where P = Symbol(routine_name(P), "_dag")
+routine_name(::Type{<:GenericRoutine{name}}) where {name} = name
+routine_name(::Type{T}) where {T<:IntrinsicRoutine} = nameof(T)
+routine_name(::Type{<:RoutineSpec{P}}) where {P} = routine_name(P)
+routine_name(::Type{<:Adjoint{P}}) where {P} = Symbol(routine_name(P), "_dag")
 
 struct DeviceError <: Exception
     msg::String
@@ -110,7 +116,7 @@ macro semantic_stub(ex::Expr)
     ex.head === :call || throw(ParseError("expect function call"))
     ex.args[1] isa Symbol || throw(ParseError("stub must be a function"))
 
-    def = Dict{Symbol, Any}()
+    def = Dict{Symbol,Any}()
     name = ex.args[1]
     macroname = Symbol("@$name")
     def[:name] = name
@@ -139,8 +145,7 @@ end
 end # Semantic
 
 function gate_sugar(ex::Expr)
-    is_gate_location(ex) ||
-        throw(ParseError("invalid syntax for gate: $ex"))
+    is_gate_location(ex) || throw(ParseError("invalid syntax for gate: $ex"))
     return ex.args[3], ex.args[2]
 end
 
@@ -164,7 +169,7 @@ end
 
 macro measure(args...)
     length(args) || throw(ArgumentError("@meausre expects at most 3 arguments"))
-    
+
     # kwargs
     option = Expr(:parameters)
     args = []
@@ -174,7 +179,8 @@ macro measure(args...)
             if key === :reset_to
                 option = Expr(:parameters, Expr(:kw, key, val))
             elseif key === :remove
-                val isa Bool || throw(ArgumentError("`remove` keyword argument should be a constant value"))
+                val isa Bool ||
+                    throw(ArgumentError("`remove` keyword argument should be a constant value"))
                 option = Expr(:parameters, Expr(:kw, key, val))
             else
                 throw(ParseError("unknown measurement option $(each)"))
@@ -197,7 +203,7 @@ macro barrier(locs)
 end
 
 macro device(ex::Expr)
-    def = splitdef(ex; throw=false)
+    def = splitdef(ex; throw = false)
 
     if isnothing(def)
         ex.head === :call || throw(ParseError("invalid syntax of @device: $ex"))
@@ -241,9 +247,9 @@ function device_def(def::Dict)
 
     push!(code.args, combinedef(device_def))
     push!(code.args, combinedef(stub_def))
-    
+
     if !isnothing(name)
-        push!(code.args, :(const $name = $self_annotation() ))
+        push!(code.args, :(const $name = $self_annotation()))
     end
 
     push!(code.args, name)
@@ -266,8 +272,7 @@ function preprocess_device_gate_syntax(ex)
     return ex
 end
 
-function device_call(ex::Expr, kwargs)
-end
+function device_call(ex::Expr, kwargs) end
 
 function is_gate_location(ex)
     ex isa Expr || return false
