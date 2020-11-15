@@ -21,45 +21,15 @@ using YaoAPI
 using BitBasis
 using ZXCalculus
 
-using Core:
-    CodeInfo,
-    SSAValue,
-    Const,
-    PartialStruct,
-    Slot,
-    GotoIfNot,
-    GotoNode,
-    SlotNumber,
-    Argument,
-    ReturnNode
-using Core.Compiler:
-    InferenceParams,
-    InferenceResult,
-    OptimizationParams,
-    OptimizationState,
-    Bottom,
-    AbstractInterpreter,
-    VarTable,
-    InferenceState,
-    CFG,
-    NewSSAValue,
-    IRCode,
-    InstructionStream,
-    CallMeta
-using Core.Compiler:
-    get_world_counter,
-    get_inference_cache,
-    may_optimize,
-    isconstType,
-    isconcretetype,
-    widenconst,
-    isdispatchtuple,
-    isinlineable,
-    is_inlineable_constant,
-    copy_exprargs,
-    convert_to_ircode,
-    coverage_enabled,
-    argtypes_to_type,
+using Core: CodeInfo, SSAValue, Const, PartialStruct, Slot, GotoIfNot, GotoNode, SlotNumber, Argument, ReturnNode
+using Core.Compiler: InferenceParams, InferenceResult, OptimizationParams, OptimizationState, Bottom,
+    AbstractInterpreter, VarTable, InferenceState, CFG, NewSSAValue, IRCode,
+    InstructionStream, CallMeta
+using Core.Compiler: get_world_counter, get_inference_cache, may_optimize,
+    isconstType, isconcretetype, widenconst, isdispatchtuple, isinlineable,
+    is_inlineable_constant, copy_exprargs, convert_to_ircode, coverage_enabled, argtypes_to_type,
+    userefs, UseRefIterator, UseRef, MethodResultPure, is_pure_intrinsic_infer, intrinsic_nothrow,
+    quoted, anymap,
     # Julia passes
     compact!,
     ssa_inlining_pass!,
@@ -84,7 +54,7 @@ export Routine,
     @device
 export routine_name
 
-include("compiler/utils.jl")
+include("compiler/patch.jl")
 include("compiler/routine.jl")
 include("compiler/intrinsics.jl")
 include("compiler/qasm.jl")
@@ -98,17 +68,16 @@ include("compiler/codeinfo.jl")
 include("compiler/optimize.jl")
 
 # code generators
-include("compiler/codegen/emulation.jl")
-include("compiler/codegen/qasm.jl")
+include("compiler/codegen/codegen.jl")
 
 include("compiler/reflection.jl")
-include("compiler/tools.jl")
+include("compiler/utils.jl")
 # include("compiler/validation.jl")
 # include("compiler/trace.jl")
 
-# function __init__()
-#     TimerOutputs.reset_timer!(to)
-# end
+function __init__()
+    TimerOutputs.reset_timer!(to)
+end
 
 include("runtime/intrinsics.jl")
 

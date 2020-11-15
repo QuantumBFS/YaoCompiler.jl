@@ -106,7 +106,7 @@ Semantic extension for Julia.
 """
 module Semantic
 using ExprTools
-using ..YaoCompiler: DeviceError, Operation, Locations, CtrlLocations
+using ..YaoCompiler: DeviceError, Operation, Locations, CtrlLocations, IntrinsicRoutine
 
 # semantic stubs
 const SEMANTIC_STUBS = Symbol[]
@@ -124,6 +124,7 @@ macro semantic_stub(ex::Expr)
     err = DeviceError("@$name is not executed as a quantum program")
     def[:body] = quote
         throw($err)
+        # nothing
     end
 
     quote
@@ -133,9 +134,9 @@ macro semantic_stub(ex::Expr)
     end |> esc
 end
 
-@semantic_stub main(gate::Operation)
-@semantic_stub ctrl(gate::Operation, loc::Locations, ctrl::CtrlLocations)
-@semantic_stub gate(gate::Operation, loc::Locations)
+@semantic_stub main(gate::Union{Operation, IntrinsicRoutine})
+@semantic_stub ctrl(gate::Union{Operation, IntrinsicRoutine}, loc::Locations, ctrl::CtrlLocations)
+@semantic_stub gate(gate::Union{Operation, IntrinsicRoutine}, loc::Locations)
 # NOTE: other measurement options are just syntax sugars
 # TODO: check in typeinf
 @semantic_stub measure(locs::Locations)

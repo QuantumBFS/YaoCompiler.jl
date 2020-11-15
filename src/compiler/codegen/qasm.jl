@@ -1,12 +1,149 @@
 using RBNF
 using RBNF: Token
 
+const pi_token = Token{:reserved}("pi")
+const half_pi_token = (pi_token, Token{:reserved}("/"), Token{:int}("2"))
+
+# Intrinsics
+# // 3-parameter 2-pulse single qubit gate
+# gate u3(theta,phi,lambda) q { U(theta,phi,lambda) q; }
+# // 2-parameter 1-pulse single qubit gate
+# gate u2(phi,lambda) q { U(pi/2,phi,lambda) q; }
+# // 1-parameter 0-pulse single qubit gate
+# gate u1(lambda) q { U(0,0,lambda) q; }
+# // Pauli gate: bit-flip
+# gate x a { u3(pi,0,pi) a; }
+# // Pauli gate: bit and phase flip
+# gate y a { u3(pi,pi/2,pi/2) a; }
+# // Pauli gate: phase flip
+# gate z a { u1(pi) a; }
+# // Clifford gate: Hadamard
+# gate h a { u2(0,pi) a; }
+# // Clifford gate: sqrt(Z) phase gate
+# gate s a { u1(pi/2) a; }
+# // Clifford gate: conjugate of sqrt(Z)
+# gate sdg a { u1(-pi/2) a; }
+# // C3 gate: sqrt(S) phase gate
+# gate t a { u1(pi/4) a; }
+# // C3 gate: conjugate of sqrt(S)
+# gate tdg a { u1(-pi/4) a; }
+function code_qasm(gate::IntrinsicRoutine)
+    gt = typeof(gate)
+    args = Any[getfield(gate, x) for x in fieldnames(gt)]
+    if isempty(args)
+        return code_qasm(gt)
+    else
+        return code_qasm(gt, args)
+    end
+end
+
+qasm_gate_name(::Type{Intrinsics.XGate}) = "x"
+qasm_gate_name(::Type{Intrinsics.YGate}) = "y"
+qasm_gate_name(::Type{Intrinsics.ZGate}) = "z"
+qasm_gate_name(::Type{Intrinsics.HGate}) = "h"
+qasm_gate_name(::Type{Intrinsics.SGate}) = "s"
+qasm_gate_name(::Type{Intrinsics.TGate}) = "t"
+qasm_gate_name(::Type{<:Intrinsics.Rx}) = "rx"
+qasm_gate_name(::Type{<:Intrinsics.Ry}) = "ry"
+qasm_gate_name(::Type{<:Intrinsics.Rz}) = "rz"
+
+code_qasm(::Type{Intrinsics.XGate}) = QASM.UGate(pi_token, Token{:int}("0"), pi_token, [])
+
+function code_qasm(::Type{Intrinsics.YGate})
+    QASM.UGate(
+        pi_token,
+        half_pi_token,
+        half_pi_token,
+        nothing,
+    )
+end
+
+function code_qasm(::Type{Intrinsics.ZGate})
+    QASM.UGate(
+        Token{:int}("0"),
+        Token{:int}("0"),
+        pi_token,
+        nothing,
+    )
+end
+
+function code_qasm(::Type{Intrinsics.HGate})
+    QASM.UGate(
+        half_pi_token,
+        Token{:int}("0"),
+        pi_token,
+        nothing,
+    )
+end
+
+function code_qasm(::Type{Intrinsics.SGate})
+    QASM.UGate(
+        Token{:int}("0"),
+        Token{:int}("0"),
+        half_pi_token,
+        nothing,
+    )
+end
+
+function code_qasm(::Type{Intrinsics.TGate})
+    QASM.UGate(
+        Token{:int}("0"),
+        Token{:int}("0"),
+        (pi_token, Token{:reserved}("/"), Token{:int}("4")),
+        nothing,
+    )
+end
+
+# // Rotation around X-axis
+# gate rx(theta) a { u3(theta,-pi/2,pi/2) a; }
+# // rotation around Y-axis
+# gate ry(theta) a { u3(theta,0,0) a; }
+# // rotation around Z axis
+# gate rz(phi) a { u1(phi) a; }
+
+to_token(x::AbstractFloat) = Token{:float64}(string(Float64(x)))
+to_token(x::String) = Token{:id}(x)
+to_token(x::Integer) = Token{:int}(string(x))
+to_token(x) = x
+
+function code_qasm(::Type{<:Intrinsics.Rx}, vars::Vector{Any})
+    QASM.UGate(
+        to_token(vars[1]),
+        QASM.Negative(half_pi_token),
+        half_pi_token,
+        nothing,
+    )
+end
+
+# TODO: check this, U(theta, 0, 0) is Rz?
+function code_qasm(::Type{<:Intrinsics.Ry}, vars::Vector{Any})
+    QASM.UGate(
+        Token{:int}("0"),
+        to_token(vars[1]),
+        Token{:int}("0"),
+        nothing,
+    )
+end
+
+function code_qasm(::Type{<:Intrinsics.Rz}, vars::Vector{Any})
+    QASM.UGate(
+        Token{:int}("0"),
+        Token{:int}("0"),
+        to_token(vars[1]),
+        nothing,
+    )
+end
+
 abstract type TargetQASM end
 # toplevel QASM
-struct TargetQASMTopLevel <: TargetQASM end
+Base.@kwdef struct TargetQASMTopLevel <: TargetQASM
+    inline_intrinsic::Bool = false
+end
 
 # QASM gate decl
-struct TargetQASMGate <: TargetQASM end
+Base.@kwdef struct TargetQASMGate <: TargetQASM
+    inline_intrinsic::Bool = false
+end
 
 struct RegMap
     cbits::Dict{Any,Tuple{String,Int}}
@@ -39,33 +176,33 @@ function RegMap(target, ci::CodeInfo)
             if stmt.head === :(=)
                 slot = stmt.args[1]::SlotNumber
                 measure_ex = stmt.args[2]
-                locs = obtain_ssa_const(measure_ex.args[2], ci)::Locations
+                locs = obtain_const(measure_ex.args[2], ci)::Locations
                 name = string(ci.slotnames[slot.id])
                 cbits[slot] = (name, length(locs))
             else
-                locs = obtain_ssa_const(stmt.args[2], ci)::Locations
+                locs = obtain_const(stmt.args[2], ci)::Locations
                 name = creg_name(v)
                 cbits[v] = (name, length(locs))
             end
             # allocate new register for measurements
             allocate_new_qreg!(locs_to_regs, locs)
         elseif qt === :barrier
-            locs = obtain_ssa_const(stmt.args[2], ci)::Locations
+            locs = obtain_const(stmt.args[2], ci)::Locations
             record_locations!(target, locs_to_regs, locs)
         elseif qt === :gate
             if stmt.head === :invoke
-                locs = obtain_ssa_const(stmt.args[4], ci)::Locations
+                locs = obtain_const(stmt.args[4], ci)::Locations
             elseif stmt.head === :call
-                locs = obtain_ssa_const(stmt.args[3], ci)::Locations
+                locs = obtain_const(stmt.args[3], ci)::Locations
             end
             record_locations!(target, locs_to_regs, locs)
         elseif qt === :ctrl
             if stmt.head === :invoke
-                locs = obtain_ssa_const(stmt.args[4], ci)::Locations
-                ctrl = obtain_ssa_const(stmt.args[5], ci)::CtrlLocations
+                locs = obtain_const(stmt.args[4], ci)::Locations
+                ctrl = obtain_const(stmt.args[5], ci)::CtrlLocations
             elseif stmt.head === :call
-                locs = obtain_ssa_const(stmt.args[3], ci)::Locations
-                ctrl = obtain_ssa_const(stmt.args[4], ci)::CtrlLocations
+                locs = obtain_const(stmt.args[3], ci)::Locations
+                ctrl = obtain_const(stmt.args[4], ci)::CtrlLocations
             end
 
             record_locations!(target, locs_to_regs, locs)
@@ -160,43 +297,6 @@ function record_locations!(::TargetQASMGate, locs_to_regs::Dict{Int,Int}, locs::
     return locs_to_regs
 end
 
-function obtain_ssa_const(@nospecialize(x), ci::CodeInfo)
-    if x isa SSAValue
-        x = ci.ssavaluetypes[x.id]::Const
-        return x.val
-    elseif x isa GlobalRef
-        if isdefined(x.mod, x.name) && isconst(x.mod, x.name)
-            return getfield(x.mod, x.name)
-        end
-    end
-
-    return x
-end
-
-function obtain_gate_stmt(@nospecialize(x), ci::CodeInfo)
-    if x isa SSAValue
-        stmt = ci.code[x.id]
-        gt = ci.ssavaluetypes[x.id]
-        if gt isa Const
-            return gt.val, widenconst(gt)
-        else
-            return stmt, widenconst(gt)
-        end
-    elseif x isa Const
-        return x.val, typeof(x.val)
-    elseif x isa GlobalRef
-        gate = Core.Compiler.abstract_eval_global(x.mod, x.name)
-        # TODO: move this to parsing time
-        if gate === Any
-            throw(UndefVarError(x.name))
-        end
-        return gate.val, widenconst(gate)
-    else
-        # special value
-        return x, typeof(x)
-    end
-end
-
 qreg_name(idx::Int) = string("qreg_", idx)
 creg_name(idx::Int) = string("creg_", idx)
 
@@ -241,12 +341,18 @@ function codegen(target::TargetQASMTopLevel, ci::CodeInfo)
         else
             st.pc += 1
         end
-        isnothing(inst) || push!(prog, inst)
+        
+        isnothing(inst) && continue
+        if inst isa Vector
+            append!(prog, inst)
+        else
+            push!(prog, inst)
+        end
     end
     return QASM.MainProgram(v"2.0", prog)
 end
 
-function gate_name(spec)
+function qasm_gate_name(spec)
     name = string(routine_name(spec))
     if '#' in name
         name = "__julia_lambda" * replace(name, "#" => "_")
@@ -258,16 +364,20 @@ function scan_cargs(ci::CodeInfo)
     v = findfirst(ci.code) do stmt
         @match stmt begin
             Expr(:call, getfield, Argument(2), :variables) => true
+            Expr(:call, GlobalRef(Base, :getfield), Argument(2), QuoteNode(:variables)) => true
+            Expr(:call, getfield, SlotNumber(2), QuoteNode(:variables)) => true
             Expr(:call, GlobalRef(Base, :getfield), SlotNumber(2), QuoteNode(:variables)) => true
             _ => false
         end
     end
-    # none of the classical parameters are used
-    isnothing(v) && return
 
     @assert !isnothing(ci.parent)
     spec = ci.parent.specTypes.parameters[2]
-    tt = Tuple{spec.parameters[1],spec.parameters[2].parameters...}
+
+    # none of the classical parameters are used
+    isnothing(v) && return qasm_gate_name(spec), String[], Dict{Int, String}()
+
+    tt = Tuple{spec.parameters[1], spec.parameters[2].parameters...}
     ms = methods(routine_stub, tt)
     length(ms) == 1 || error("ambiguous method call")
     method = first(ms)
@@ -285,7 +395,7 @@ function scan_cargs(ci::CodeInfo)
         cargs[v] = name
     end
 
-    return gate_name(spec), carg_names, cargs
+    return qasm_gate_name(spec), carg_names, cargs
 end
 
 function codegen(target::TargetQASMGate, ci::CodeInfo)
@@ -312,7 +422,13 @@ function codegen(target::TargetQASMGate, ci::CodeInfo)
         else
             st.pc += 1
         end
-        isnothing(inst) || push!(prog, inst)
+
+        isnothing(inst) && continue
+        if inst isa Vector
+            append!(prog, inst)
+        else
+            push!(prog, inst)
+        end
     end
     return QASM.Gate(decl, prog)
 end
@@ -360,24 +476,93 @@ index_qreg(ctrl::CtrlLocations, regmap::RegMap) = index_qreg(ctrl.storage, regma
 
 function codegen_gate(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
     # NOTE: QASM compatible code should have constant location
-    if st.stmt.head === :invoke
-        gate, gt = obtain_gate_stmt(st.stmt.args[3], ci)
-        locs = obtain_ssa_const(st.stmt.args[4], ci)
-    elseif st.stmt.head === :call
-        gate, gt = obtain_gate_stmt(st.stmt.args[2], ci)
-        locs = obtain_ssa_const(st.stmt.args[3], ci)
-    end
-
+    gate, gt, locs = obtain_const_gate_stmt(st.stmt, ci)
+    
     gt <: IntrinsicRoutine || gt <: RoutineSpec || error("invalid gate type: $gate::$gt")
-    name = gate_name(gt)
-    cargs = codegen_cargs(target, ci, gate, st)
-    qargs = Any[]
-    for k in locs
-        r, addr = st.regmap.locs_to_reg_addr[k]
-        push!(qargs, index_qreg(r, addr, st.regmap))
-    end
 
-    return QASM.Instruction(Token{:id}(_qasm_name(name)), cargs, qargs)
+
+    if gt <: IntrinsicRoutine
+        return codegen_intrinsic_gate(target, gate, gt, locs, ci, st)
+    else
+        name = qasm_gate_name(gt)
+        cargs = codegen_cargs(target, ci, gate, st)
+        qargs = Any[]
+
+        for k in locs.storage
+            r, addr = st.regmap.locs_to_reg_addr[k]
+            push!(qargs, index_qreg(r, addr, st.regmap))
+        end
+
+        return QASM.Instruction(
+            name,
+            cargs, qargs
+        )
+    end
+end
+
+# TODO: polish duplicated code
+function codegen_intrinsic_gate(target::TargetQASM, @nospecialize(gate), gt, locs::Locations, ci::CodeInfo, st::QASMCodeGenState)
+    # expand the single qubit gates syntax sugar
+    # this might be better to be moved to codeinfo
+    # pre-processing stage
+    # TODO: we probably should do this right after
+    #       type infer
+    if target.inline_intrinsic
+        if gate isa IntrinsicRoutine
+            inst = code_qasm(gate)
+        elseif gate isa Expr
+            cargs = codegen_cargs(target, ci, gate, st)
+            inst = code_qasm(gt, cargs)
+        end
+
+        if is_one_qubit_gate(gt)
+            inst = inst::QASM.UGate
+            insts = []
+            for k in locs.storage
+                r, addr = st.regmap.locs_to_reg_addr[k]
+                push!(insts, QASM.UGate(
+                    inst.z1, inst.y, inst.z2,
+                    index_qreg(r, addr, st.regmap)
+                ))
+            end
+            return insts
+        else
+            inst = inst::QASM.Instruction
+            for k in locs.storage
+                r, addr = st.regmap.locs_to_reg_addr[k]
+                push!(qargs, index_qreg(r, addr, st.regmap))
+            end
+    
+            return QASM.Instruction(
+                inst.name,
+                copy(inst.cargs), qargs
+            )
+        end
+    else
+        cargs = codegen_cargs(target, ci, gate, st)
+        name = qasm_gate_name(gt)
+
+        if is_one_qubit_gate(gt)
+            insts = []
+            for k in locs.storage
+                r, addr = st.regmap.locs_to_reg_addr[k]
+                push!(insts, QASM.Instruction(
+                    name,
+                    cargs, Any[index_qreg(r, addr, st.regmap)],
+                ))
+            end
+            return insts
+        else
+            for k in locs.storage
+                r, addr = st.regmap.locs_to_reg_addr[k]
+                push!(qargs, index_qreg(r, addr, st.regmap))
+            end
+            return QASM.Instruction(
+                name,
+                cargs, qargs,
+            )
+        end
+    end
 end
 
 function codegen_cargs(::TargetQASMTopLevel, ::CodeInfo, @nospecialize(gate), ::QASMCodeGenState)
@@ -401,21 +586,18 @@ function codegen_cargs(
     if gate isa Expr
         # IntrinsicSpec/RoutineSpec take a tuple
         # so we need to find the actual variables
-        if gate.head === :new
-            variables = gate.args[2]::SSAValue
-            var_tuple = ci.code[variables.id]::Expr
-            if var_tuple.args[1] === Core.tuple
-                vars = var_tuple.args[2:end]
-            else
-                vars = gate.args[2:end]
-            end
-        elseif gate.head === :call # normal constructor call
+        if gate.head === :new || gate.head === :call
             vars = gate.args[2:end]
         end
 
         cargs = Any[]
         for each in vars
-            push!(cargs, codegen_exp(target, ci, each, st))
+            val = codegen_exp(target, ci, each, st)
+            if val isa Vector
+                append!(cargs, val)
+            else
+                push!(cargs, val)
+            end
         end
         return cargs
     elseif gate isa RoutineSpec
@@ -455,12 +637,14 @@ function codegen_exp(target::TargetQASM, ci::CodeInfo, @nospecialize(stmt), st::
     stmt isa Expr || error("classical expression for QASM cannot contain control flow, got $stmt")
 
     if stmt.head === :call
-        if stmt.args[1] isa GlobalRef
-            mod, fn_name = stmt.args[1].mod, stmt.args[1].name
+        f = stmt.args[1]
+
+        if f isa GlobalRef
+            mod, fn_name = f.mod, f.name
             fn = Core.Compiler.abstract_eval_global(mod, fn_name).val
             fn === Any && error("cannot determine function call: $stmt")
         else
-            fn = stmt.args[1]
+            fn = f
             fn_name = nameof(fn)
         end
         args = stmt.args[2:end]
@@ -470,6 +654,10 @@ function codegen_exp(target::TargetQASM, ci::CodeInfo, @nospecialize(stmt), st::
         args = stmt.args[3:end]
     else
         error("incompatible expression for QASM: $stmt")
+    end
+
+    if fn === Core.tuple
+        return Any[codegen_exp(target, ci, each, st) for each in args]
     end
 
     if fn === Core.Intrinsics.neg_float
@@ -498,22 +686,10 @@ function codegen_exp(target::TargetQASM, ci::CodeInfo, @nospecialize(stmt), st::
 end
 
 function codegen_ctrl(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
-    # NOTE: QASM compatible code should have constant location
-    # QASM compatible code should only contain control X gate
-    # as control gates, for other control gates, it should be
-    # either decomposed or error, so we will assume the gate
-    # is a constant here.
-    if st.stmt.head === :invoke
-        gate = obtain_ssa_const(st.stmt.args[3], ci)
-        locs = obtain_ssa_const(st.stmt.args[4], ci)::Locations
-        ctrl = obtain_ssa_const(st.stmt.args[5], ci)::CtrlLocations
-    elseif st.stmt.head === :call
-        gate = obtain_ssa_const(st.stmt.args[2], ci)
-        locs = obtain_ssa_const(st.stmt.args[3], ci)::Locations
-        ctrl = obtain_ssa_const(st.stmt.args[4], ci)::CtrlLocations
-    end
+    gate, gt, locs, ctrl = obtain_const_ctrl_stmt(st.stmt, ci)
+    gt <: IntrinsicRoutine || gt <: RoutineSpec || error("invalid gate type: $gate::$gt")
 
-    all(ctrl.configs) || error("inverse ctrl is not supported in QASM backend yet")
+    all(ctrl.flags) || error("inverse ctrl is not supported in QASM backend yet")
     if gate === Intrinsics.X && length(ctrl) == 1 && length(locs) == 1
         qargs = Any[index_qreg(ctrl, st.regmap)..., index_qreg(locs, st.regmap)...]
         return QASM.Instruction(Token{:id}("CX"), Any[], qargs)
@@ -523,7 +699,7 @@ function codegen_ctrl(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
             "1. include a qasm stdlib e.g qelib<version>.inc and use ccx gate from it\n",
             "2. define your own ccx gate via @device using CX and single qubit gate",
         )
-        # ctrl.configs[1] || error("inverse ctrl is not supported in QASM backend yet")
+        # ctrl.flags[1] || error("inverse ctrl is not supported in QASM backend yet")
         # qargs = Any[index_qreg(ctrl, st.regmap)..., index_qreg(locs, st.regmap)...]
         # return QASM.Instruction(
         #     Token{:id}("ccx"),
@@ -538,10 +714,10 @@ function codegen_measure(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
     if st.stmt.head === :(=)
         slot = st.stmt.args[1]::SlotNumber
         measure_ex = st.stmt.args[2]
-        locs = obtain_ssa_const(measure_ex.args[2], ci)::Locations
+        locs = obtain_const(measure_ex.args[2], ci)::Locations
         cname, _ = st.regmap.cbits[slot]
     else
-        locs = obtain_ssa_const(st.stmt.args[2], ci)::Locations
+        locs = obtain_const(st.stmt.args[2], ci)::Locations
         cname, _ = st.regmap.cbits[st.pc]
     end
 
@@ -558,7 +734,7 @@ function codegen_measure(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
 end
 
 function codegen_barrier(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
-    locs = obtain_ssa_const(st.stmt.args[2], ci)::Locations
+    locs = obtain_const(st.stmt.args[2], ci)::Locations
 
     qargs = Any[]
     args = Dict{Int,Vector{Int}}()
@@ -585,10 +761,8 @@ end
 
 function codegen_ifnot(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
     cond = st.stmt.cond::SSAValue
-    cond_stmt = ci.code[st.stmt.cond.id]
-    # cond_stmt should be Expr(:(==), creg, b)
+    creg, right = obtain_qasm_ifnot_cond(cond, ci)
 
-    creg = cond_stmt.args[2]
     if creg isa SlotNumber
         cname = ci.slotnames[creg.id]
     elseif creg isa SSAValue
@@ -599,30 +773,8 @@ function codegen_ifnot(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
         # by having an intermediate type MeasureResult
         cname = creg_name(creg.id)
     end
-
-    # move this to validation
-    cond_stmt.args[3] isa Int || error("right hand condition must be constant Int for QASM")
-    right = cond_stmt.args[3]
-
     # find the first quantum stmt after goto
-    pc′ = st.pc + 1
-    local stmt′
-    while pc′ <= length(ci.code)
-        stmt′ = ci.code[pc′]
-        if stmt′ isa Expr
-            is_quantum_statement(stmt′)
-            break
-        else
-            # NOTE:
-            # we can allow some constant statements
-            # but not control flows or other nodes
-            error("unexpected statement: $stmt′")
-        end
-        pc′ += 1
-    end
-
-    st.pc = pc′
-    st.stmt = stmt′
+    move_to_first_quantum_stmt(ci, st)
     body = codegen_stmt(target, ci, st)
     return QASM.IfStmt(Token{:id}(cname), Token{:int}(string(right)), body)
 end

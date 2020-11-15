@@ -18,6 +18,8 @@ function intrinsic_m(name::Symbol)
     end
 end
 
+is_one_qubit_gate(x) = false
+
 # function intrinsic_m(ex::Expr)
 #     ex.head === :call || error("expect a function call or a symbol")
 #     name = ex.args[1]::Symbol
@@ -37,6 +39,8 @@ end
 
 module Intrinsics
 
+using MLStyle
+import YaoCompiler
 using ..YaoCompiler: @intrinsic, IntrinsicRoutine
 export X, Y, Z, H, S, T, shift, Rx, Ry, Rz
 
@@ -47,6 +51,13 @@ export X, Y, Z, H, S, T, shift, Rx, Ry, Rz
 @intrinsic S
 @intrinsic T
 
+YaoCompiler.is_one_qubit_gate(::Type{<:XGate}) = true
+YaoCompiler.is_one_qubit_gate(::Type{<:YGate}) = true
+YaoCompiler.is_one_qubit_gate(::Type{<:ZGate}) = true
+YaoCompiler.is_one_qubit_gate(::Type{<:HGate}) = true
+YaoCompiler.is_one_qubit_gate(::Type{<:SGate}) = true
+YaoCompiler.is_one_qubit_gate(::Type{<:TGate}) = true
+
 # TODO: implement intrinsic macro for function calls
 # @intrinsic shift(θ::Real)
 # @intrinsic Rx(θ::Real)
@@ -54,9 +65,35 @@ export X, Y, Z, H, S, T, shift, Rx, Ry, Rz
 # @intrinsic Rz(θ::Real)
 
 for name in [:shift, :Rx, :Ry, :Rz]
-    @eval struct $name{T} <: IntrinsicRoutine
+    @eval struct $name{T <: Real} <: IntrinsicRoutine
         θ::T
+
+        $name(θ) = new{typeof(θ)}(θ)
     end
+
+    @eval YaoCompiler.is_one_qubit_gate(::Type{<:$name}) = true
 end
+
+struct UGate{T} <: IntrinsicRoutine
+    α::T
+    β::T
+    γ::T
+end
+
+YaoCompiler.is_one_qubit_gate(::Type{<:UGate}) = true
+# this is a workaround since MLStyle doesn't support a.b pattern
+
+@as_record XGate
+@as_record YGate
+@as_record ZGate
+@as_record HGate
+@as_record SGate
+@as_record TGate
+
+@as_record shift
+@as_record Rx
+@as_record Ry
+@as_record Rz
+@as_record UGate
 
 end

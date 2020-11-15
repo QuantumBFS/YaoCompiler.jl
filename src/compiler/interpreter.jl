@@ -75,8 +75,12 @@ function Core.Compiler.abstract_call(
 
     if f isa Function && parentmodule(f) === Semantic
         return abstract_call_quantum(interp, f, fargs, argtypes, sv, max_methods)
+    elseif (f isa UnionAll || f isa DataType) && f <: IntrinsicRoutine && allconst
+        # force intrinsic gates pure
+        callinfo = Core.Compiler.abstract_call_known(interp, f, fargs, argtypes, sv, max_methods)
+        return CallMeta(callinfo.rt, MethodResultPure())
     elseif f === Locations && allconst
-        return CallMeta(Const(f(argtypes[2].val)), nothing)
+        return CallMeta(Const(f(argtypes[2].val)), MethodResultPure())
     elseif f === CtrlLocations && allconst
         la = length(fargs) - 1
         if la == 1
@@ -84,9 +88,17 @@ function Core.Compiler.abstract_call(
         elseif la == 2
             loc = f(argtypes[2].val, argtypes[3].val)
         else
-            Core.Compiler.add_remark!(interp, sv, "Invalid CtrlLocation statement")
+            error("Invalid CtrlLocation statement")
         end
-        return CallMeta(Const(loc), nothing)
+        return CallMeta(Const(loc), MethodResultPure())
+    elseif f === getindex && allconst
+        # getindex(locs, locs)
+        la = length(argtypes)
+        a = argtypes[2].val
+        b = argtypes[3].val
+        if la == 3 && a isa AbstractLocations && b isa AbstractLocations
+            return CallMeta(Const(f(argtypes[2].val, argtypes[3].val)), MethodResultPure())
+        end
     end
 
     return Core.Compiler.abstract_call_known(interp, f, fargs, argtypes, sv, max_methods)
@@ -102,17 +114,17 @@ function abstract_call_quantum(
 )
 
     if f === Semantic.measure
-        return Core.Compiler.CallMeta(Int, nothing)
+        return Core.Compiler.CallMeta(Int, MethodResultPure())
     elseif f === Semantic.gate || f === Semantic.ctrl
         gt = widenconst(argtypes[2])
         if gt <: IntrinsicRoutine
-            callinfo = CallMeta(Const(nothing), nothing)
+            callinfo = CallMeta(Const(nothing), MethodResultPure())
         else
             callinfo = Core.Compiler.abstract_call_known(interp, f, fargs, argtypes, sv, max_methods)
         end
         return CallMeta(callinfo.rt, nothing)
     else
-        return Core.Compiler.CallMeta(Const(nothing), nothing)
+        return Core.Compiler.CallMeta(Const(nothing), MethodResultPure())
     end
 end
 
