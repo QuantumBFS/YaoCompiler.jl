@@ -1,12 +1,149 @@
 using RBNF
 using RBNF: Token
 
+const pi_token = Token{:reserved}("pi")
+const half_pi_token = (pi_token, Token{:reserved}("/"), Token{:int}("2"))
+
+# Intrinsics
+# // 3-parameter 2-pulse single qubit gate
+# gate u3(theta,phi,lambda) q { U(theta,phi,lambda) q; }
+# // 2-parameter 1-pulse single qubit gate
+# gate u2(phi,lambda) q { U(pi/2,phi,lambda) q; }
+# // 1-parameter 0-pulse single qubit gate
+# gate u1(lambda) q { U(0,0,lambda) q; }
+# // Pauli gate: bit-flip
+# gate x a { u3(pi,0,pi) a; }
+# // Pauli gate: bit and phase flip
+# gate y a { u3(pi,pi/2,pi/2) a; }
+# // Pauli gate: phase flip
+# gate z a { u1(pi) a; }
+# // Clifford gate: Hadamard
+# gate h a { u2(0,pi) a; }
+# // Clifford gate: sqrt(Z) phase gate
+# gate s a { u1(pi/2) a; }
+# // Clifford gate: conjugate of sqrt(Z)
+# gate sdg a { u1(-pi/2) a; }
+# // C3 gate: sqrt(S) phase gate
+# gate t a { u1(pi/4) a; }
+# // C3 gate: conjugate of sqrt(S)
+# gate tdg a { u1(-pi/4) a; }
+function code_qasm(gate::IntrinsicRoutine)
+    gt = typeof(gate)
+    args = Any[getfield(gate, x) for x in fieldnames(gt)]
+    if isempty(args)
+        return code_qasm(gt)
+    else
+        return code_qasm(gt, args)
+    end
+end
+
+qasm_gate_name(::Type{Intrinsics.XGate}) = "x"
+qasm_gate_name(::Type{Intrinsics.YGate}) = "y"
+qasm_gate_name(::Type{Intrinsics.ZGate}) = "z"
+qasm_gate_name(::Type{Intrinsics.HGate}) = "h"
+qasm_gate_name(::Type{Intrinsics.SGate}) = "s"
+qasm_gate_name(::Type{Intrinsics.TGate}) = "t"
+qasm_gate_name(::Type{<:Intrinsics.Rx}) = "rx"
+qasm_gate_name(::Type{<:Intrinsics.Ry}) = "ry"
+qasm_gate_name(::Type{<:Intrinsics.Rz}) = "rz"
+
+code_qasm(::Type{Intrinsics.XGate}) = QASM.UGate(pi_token, Token{:int}("0"), pi_token, [])
+
+function code_qasm(::Type{Intrinsics.YGate})
+    QASM.UGate(
+        pi_token,
+        half_pi_token,
+        half_pi_token,
+        nothing,
+    )
+end
+
+function code_qasm(::Type{Intrinsics.ZGate})
+    QASM.UGate(
+        Token{:int}("0"),
+        Token{:int}("0"),
+        pi_token,
+        nothing,
+    )
+end
+
+function code_qasm(::Type{Intrinsics.HGate})
+    QASM.UGate(
+        half_pi_token,
+        Token{:int}("0"),
+        pi_token,
+        nothing,
+    )
+end
+
+function code_qasm(::Type{Intrinsics.SGate})
+    QASM.UGate(
+        Token{:int}("0"),
+        Token{:int}("0"),
+        half_pi_token,
+        nothing,
+    )
+end
+
+function code_qasm(::Type{Intrinsics.TGate})
+    QASM.UGate(
+        Token{:int}("0"),
+        Token{:int}("0"),
+        (pi_token, Token{:reserved}("/"), Token{:int}("4")),
+        nothing,
+    )
+end
+
+# // Rotation around X-axis
+# gate rx(theta) a { u3(theta,-pi/2,pi/2) a; }
+# // rotation around Y-axis
+# gate ry(theta) a { u3(theta,0,0) a; }
+# // rotation around Z axis
+# gate rz(phi) a { u1(phi) a; }
+
+to_token(x::AbstractFloat) = Token{:float64}(string(Float64(x)))
+to_token(x::String) = Token{:id}(x)
+to_token(x::Integer) = Token{:int}(string(x))
+to_token(x) = x
+
+function code_qasm(::Type{<:Intrinsics.Rx}, vars::Vector{Any})
+    QASM.UGate(
+        to_token(vars[1]),
+        QASM.Negative(half_pi_token),
+        half_pi_token,
+        nothing,
+    )
+end
+
+# TODO: check this, U(theta, 0, 0) is Rz?
+function code_qasm(::Type{<:Intrinsics.Ry}, vars::Vector{Any})
+    QASM.UGate(
+        Token{:int}("0"),
+        to_token(vars[1]),
+        Token{:int}("0"),
+        nothing,
+    )
+end
+
+function code_qasm(::Type{<:Intrinsics.Rz}, vars::Vector{Any})
+    QASM.UGate(
+        Token{:int}("0"),
+        Token{:int}("0"),
+        to_token(vars[1]),
+        nothing,
+    )
+end
+
 abstract type TargetQASM end
 # toplevel QASM
-struct TargetQASMTopLevel <: TargetQASM end
+Base.@kwdef struct TargetQASMTopLevel <: TargetQASM
+    inline_intrinsic::Bool = false
+end
 
 # QASM gate decl
-struct TargetQASMGate <: TargetQASM end
+Base.@kwdef struct TargetQASMGate <: TargetQASM
+    inline_intrinsic::Bool = false
+end
 
 struct RegMap
     cbits::Dict{Any, Tuple{String, Int}}
@@ -202,7 +339,13 @@ function codegen(target::TargetQASMTopLevel, ci::CodeInfo)
         else
             st.pc += 1
         end
-        isnothing(inst) || push!(prog, inst)
+        
+        isnothing(inst) && continue
+        if inst isa Vector
+            append!(prog, inst)
+        else
+            push!(prog, inst)
+        end
     end
     return QASM.MainProgram(v"2.0", prog)
 end
@@ -219,15 +362,19 @@ function scan_cargs(ci::CodeInfo)
     v = findfirst(ci.code) do stmt
         @match stmt begin
             Expr(:call, getfield, Argument(2), :variables) => true
+            Expr(:call, GlobalRef(Base, :getfield), Argument(2), QuoteNode(:variables)) => true
+            Expr(:call, getfield, SlotNumber(2), QuoteNode(:variables)) => true
             Expr(:call, GlobalRef(Base, :getfield), SlotNumber(2), QuoteNode(:variables)) => true
             _ => false
         end
     end
-    # none of the classical parameters are used
-    isnothing(v) && return
 
     @assert !isnothing(ci.parent)
     spec = ci.parent.specTypes.parameters[2]
+
+    # none of the classical parameters are used
+    isnothing(v) && return qasm_gate_name(spec), String[], Dict{Int, String}()
+
     tt = Tuple{spec.parameters[1], spec.parameters[2].parameters...}
     ms = methods(routine_stub, tt)
     length(ms) == 1 || error("ambiguous method call")
@@ -273,13 +420,12 @@ function codegen(target::TargetQASMGate, ci::CodeInfo)
         else
             st.pc += 1
         end
-        
-        if !isnothing(inst)
-            if inst isa Vector
-                append!(prog, inst)
-            else
-                push!(prog, inst)
-            end
+
+        isnothing(inst) && continue
+        if inst isa Vector
+            append!(prog, inst)
+        else
+            push!(prog, inst)
         end
     end
     return QASM.Gate(decl, prog)
@@ -331,35 +477,89 @@ function codegen_gate(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
     gate, gt, locs = obtain_const_gate_stmt(st.stmt, ci)
     
     gt <: IntrinsicRoutine || gt <: RoutineSpec || error("invalid gate type: $gate::$gt")
-    name = qasm_gate_name(gt)
-    cargs = codegen_cargs(target, ci, gate, st)
-    qargs = Any[]
 
-    # expand the single qubit gates syntax sugar
-    # this might be better to be moved to codeinfo
-    # pre-processing stage
-    # TODO: we probably should do this after
-    #       type infer
-    if is_one_qubit_gate(gt) && length(locs) > 1
-        insts = []
-        for k in locs.storage
-            r, addr = st.regmap.locs_to_reg_addr[k]
-            push!(insts, QASM.Instruction(
-                Token{:id}(_qasm_name(name)),
-                copy(cargs), index_qreg(r, addr, st.regmap),
-            ))
-        end
-        return insts
+
+    if gt <: IntrinsicRoutine
+        return codegen_intrinsic_gate(target, gate, gt, locs, ci, st)
     else
+        name = qasm_gate_name(gt)
+        cargs = codegen_cargs(target, ci, gate, st)
+        qargs = Any[]
+
         for k in locs.storage
             r, addr = st.regmap.locs_to_reg_addr[k]
             push!(qargs, index_qreg(r, addr, st.regmap))
         end
 
         return QASM.Instruction(
-            Token{:id}(_qasm_name(name)),
+            name,
             cargs, qargs
         )
+    end
+end
+
+# TODO: polish duplicated code
+function codegen_intrinsic_gate(target::TargetQASM, @nospecialize(gate), gt, locs::Locations, ci::CodeInfo, st::QASMCodeGenState)
+    # expand the single qubit gates syntax sugar
+    # this might be better to be moved to codeinfo
+    # pre-processing stage
+    # TODO: we probably should do this right after
+    #       type infer
+    if target.inline_intrinsic
+        if gate isa IntrinsicRoutine
+            inst = code_qasm(gate)
+        elseif gate isa Expr
+            cargs = codegen_cargs(target, ci, gate, st)
+            inst = code_qasm(gt, cargs)
+        end
+
+        if is_one_qubit_gate(gt)
+            inst = inst::QASM.UGate
+            insts = []
+            for k in locs.storage
+                r, addr = st.regmap.locs_to_reg_addr[k]
+                push!(insts, QASM.UGate(
+                    inst.z1, inst.y, inst.z2,
+                    index_qreg(r, addr, st.regmap)
+                ))
+            end
+            return insts
+        else
+            inst = inst::QASM.Instruction
+            for k in locs.storage
+                r, addr = st.regmap.locs_to_reg_addr[k]
+                push!(qargs, index_qreg(r, addr, st.regmap))
+            end
+    
+            return QASM.Instruction(
+                inst.name,
+                copy(inst.cargs), qargs
+            )
+        end
+    else
+        cargs = codegen_cargs(target, ci, gate, st)
+        name = qasm_gate_name(gt)
+
+        if is_one_qubit_gate(gt)
+            insts = []
+            for k in locs.storage
+                r, addr = st.regmap.locs_to_reg_addr[k]
+                push!(insts, QASM.Instruction(
+                    name,
+                    cargs, Any[index_qreg(r, addr, st.regmap)],
+                ))
+            end
+            return insts
+        else
+            for k in locs.storage
+                r, addr = st.regmap.locs_to_reg_addr[k]
+                push!(qargs, index_qreg(r, addr, st.regmap))
+            end
+            return QASM.Instruction(
+                name,
+                cargs, qargs,
+            )
+        end
     end
 end
 
@@ -379,21 +579,18 @@ function codegen_cargs(target::TargetQASMGate, ci::CodeInfo, @nospecialize(gate)
     if gate isa Expr
         # IntrinsicSpec/RoutineSpec take a tuple
         # so we need to find the actual variables
-        if gate.head === :new
-            variables = gate.args[2]::SSAValue
-            var_tuple = ci.code[variables.id]::Expr
-            if var_tuple.args[1] === Core.tuple
-                vars = var_tuple.args[2:end]
-            else
-                vars = gate.args[2:end]
-            end
-        elseif gate.head === :call # normal constructor call
+        if gate.head === :new || gate.head === :call
             vars = gate.args[2:end]
         end
 
         cargs = Any[]
         for each in vars
-            push!(cargs, codegen_exp(target, ci, each, st))
+            val = codegen_exp(target, ci, each, st)
+            if val isa Vector
+                append!(cargs, val)
+            else
+                push!(cargs, val)
+            end
         end
         return cargs
     elseif gate isa RoutineSpec
@@ -431,12 +628,14 @@ function codegen_exp(target::TargetQASM, ci::CodeInfo, @nospecialize(stmt), st::
     stmt isa Expr || error("classical expression for QASM cannot contain control flow, got $stmt")
 
     if stmt.head === :call
-        if stmt.args[1] isa GlobalRef
-            mod, fn_name = stmt.args[1].mod, stmt.args[1].name
+        f = stmt.args[1]
+
+        if f isa GlobalRef
+            mod, fn_name = f.mod, f.name
             fn = Core.Compiler.abstract_eval_global(mod, fn_name).val
             fn === Any && error("cannot determine function call: $stmt")
         else
-            fn = stmt.args[1]
+            fn = f
             fn_name = nameof(fn)
         end
         args = stmt.args[2:end]
@@ -446,6 +645,10 @@ function codegen_exp(target::TargetQASM, ci::CodeInfo, @nospecialize(stmt), st::
         args = stmt.args[3:end]
     else
         error("incompatible expression for QASM: $stmt")
+    end
+
+    if fn === Core.tuple
+        return Any[codegen_exp(target, ci, each, st) for each in args]
     end
 
     if fn === Core.Intrinsics.neg_float
@@ -477,7 +680,7 @@ function codegen_ctrl(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
     gate, gt, locs, ctrl = obtain_const_ctrl_stmt(st.stmt, ci)
     gt <: IntrinsicRoutine || gt <: RoutineSpec || error("invalid gate type: $gate::$gt")
 
-    all(ctrl.configs) || error("inverse ctrl is not supported in QASM backend yet")
+    all(ctrl.flags) || error("inverse ctrl is not supported in QASM backend yet")
     if gate === Intrinsics.X && length(ctrl) == 1 && length(locs) == 1
         qargs = Any[index_qreg(ctrl, st.regmap)..., index_qreg(locs, st.regmap)...]
         return QASM.Instruction(
@@ -490,7 +693,7 @@ function codegen_ctrl(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
             "1. include a qasm stdlib e.g qelib<version>.inc and use ccx gate from it\n",
             "2. define your own ccx gate via @device using CX and single qubit gate"
         )
-        # ctrl.configs[1] || error("inverse ctrl is not supported in QASM backend yet")
+        # ctrl.flags[1] || error("inverse ctrl is not supported in QASM backend yet")
         # qargs = Any[index_qreg(ctrl, st.regmap)..., index_qreg(locs, st.regmap)...]
         # return QASM.Instruction(
         #     Token{:id}("ccx"),

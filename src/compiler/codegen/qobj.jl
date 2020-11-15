@@ -1,3 +1,5 @@
+const Qobj = Dict{String, Any}
+
 """
     TargetQobjQASM
 
@@ -15,6 +17,8 @@ end
 #       result program can only have constant intrinsic routine
 
 mutable struct CodeGenQobjState
+    nqubits::Int
+
     pc::Int
     stmt
 
@@ -26,13 +30,27 @@ mutable struct CodeGenQobjState
     memory_slots::Int
     # alloate for used measure result
     register_map::Dict{Int, Vector{Int}}
+    # allocate qubits on contiguous address
+    qubits_map::Dict{Int, Int}
+end
+
+function allocate_qobj_qubits!(qubits, locs::Locations, curr::Ref{Int})
+    for k in locs.storage
+        if !haskey(qubits, k)
+            qubits[k] = curr[]
+            curr[] += 1
+        end
+    end
+    return qubits
 end
 
 function CodeGenQobjState(ci::CodeInfo)
     memory_slots = 0
     register_head = 0
     register_map = Dict{Int, Vector{Int}}()
+    qubits_map = Dict{Int, Int}()
     measure_used = measure_ssa_uses!(Set{Int64}(), ci)
+    qmem_ptr = Ref{Int}(0)
 
     for (v, stmt) in eachstmt(ci)
         is_quantum_statement(stmt) || continue
@@ -44,16 +62,40 @@ function CodeGenQobjState(ci::CodeInfo)
             # we should check it again during code
             # validation stage
             locs = obtain_const(x, ci)::Locations
+            allocate_qobj_qubits!(qubits_map, locs, qmem_ptr)
             memory_slots += length(locs)
 
             if v in measure_used
                 register_map[v] = collect(register_head:register_head+length(locs)-1)
                 register_head += length(locs)
             end
+        elseif qt === :gate
+            _, _, locs = obtain_const_gate_stmt(stmt, ci)
+            allocate_qobj_qubits!(qubits_map, locs, qmem_ptr)
+        elseif qt === :ctrl
+            _, _, locs, ctrl = obtain_const_ctrl_stmt(stmt, ci)
+            allocate_qobj_qubits!(qubits_map, locs, qmem_ptr)
+            allocate_qobj_qubits!(qubits_map, ctrl.storage, qmem_ptr)
         end
     end
 
-    return CodeGenQobjState(0, nothing, 0, memory_slots, register_map)
+    return CodeGenQobjState(qmem_ptr[], 0, nothing, 0, memory_slots, register_map, qubits_map)
+end
+
+function get_qubit_addrs(ctrl::CtrlLocations, st::CodeGenQobjState)
+    return get_qubit_addrs(ctrl.storage, st)
+end
+
+function get_qubit_addrs(storage, st::CodeGenQobjState)
+    qubits = Vector{Int}(undef, length(storage))
+    for (k, l) in enumerate(storage)
+        qubits[k] = st.qubits_map[l]
+    end
+    return qubits
+end
+
+function get_qubit_addrs(locs::Locations, st::CodeGenQobjState)
+    return get_qubit_addrs(locs.storage, st)
 end
 
 "scan used measurement result"
@@ -85,15 +127,15 @@ end
 
 function codegen(target::TargetQobjQASM, ci::CodeInfo)
     st = CodeGenQobjState(ci)
-    prog = Dict(
-        "header" => Dict(),
+    prog = Qobj(
+        "header" => Qobj(),
         "config" => codegen_config(target, ci, st),
         "instructions" => codegen_inst(target, ci, st),
     )
 end
 
 function codegen_config(target::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
-    return Dict(
+    return Qobj(
         "shots" => target.nshots,
         "memory_slots" => st.memory_slots, # TODO: generate this from ci
         "seed" => target.seed,
@@ -124,6 +166,7 @@ function codegen_inst(target::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState
             end
         end
     end
+    return prog
 end
 
 function codegen_stmt(target::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
@@ -145,8 +188,6 @@ end
 function codegen_gate(::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
     gate, gt, locs = obtain_const_gate_stmt(st.stmt, ci)
 
-    @show gt
-    @show gate
     gt <: RoutineSpec && error("non-intrinsic routine used: $gt, turn on the optimizer or revise your program")
     gt <: IntrinsicRoutine || error("invalid gate type: $gate::$gt")
     gate isa IntrinsicRoutine || error("gate $gate is not constant")
@@ -155,48 +196,48 @@ function codegen_gate(::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
     #       basis gate.
 
     qobj = @match gate begin
-        ::Intrinsics.XGate => Dict(
+        ::Intrinsics.XGate => Qobj(
             "name" => "x",
         )
 
-        ::Intrinsics.YGate => Dict(
+        ::Intrinsics.YGate => Qobj(
             "name" => "y",
         )
 
-        ::Intrinsics.ZGate => Dict(
+        ::Intrinsics.ZGate => Qobj(
             "name" => "z",
         )
 
-        ::Intrinsics.HGate => Dict(
+        ::Intrinsics.HGate => Qobj(
             "name" => "h",
         )
 
-        ::Intrinsics.SGate => Dict(
+        ::Intrinsics.SGate => Qobj(
             "name" => "s",
         )
 
-        ::Intrinsics.TGate => Dict(
+        ::Intrinsics.TGate => Qobj(
             "name" => "t",
         )
 
         # TODO: sdg, tdg
 
-        Intrinsics.shift(θ) => Dict(
+        Intrinsics.shift(θ) => Qobj(
             "name" => "u1",
             "params" => Any[θ],
         )
 
-        Intrinsics.Rx(θ) => Dict(
+        Intrinsics.Rx(θ) => Qobj(
             "name" => "rx",
             "params" => Any[θ],
         )
 
-        Intrinsics.Ry(θ) => Dict(
+        Intrinsics.Ry(θ) => Qobj(
             "name" => "ry",
             "params" => Any[θ],
         )
 
-        Intrinsics.Rz(θ) => Dict(
+        Intrinsics.Rz(θ) => Qobj(
             "name" => "rz",
             "params" => Any[θ],
         )
@@ -208,13 +249,13 @@ function codegen_gate(::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
     # operation, we need to expand the program for our syntax
     # sugar here, given we don't have type information in macros
     if length(locs) == 1
-        qobj["qubits"] = Any[locs.storage[1] - 1]
+        qobj["qubits"] = get_qubit_addrs(locs, st)
         return Any[qobj]
     else
         qobjs = Any[]
         for l in locs.storage
             obj = copy(qobj)
-            obj["qubits"] = Any[l]
+            obj["qubits"] = get_qubit_addrs(l, st)
             push!(qobjs, obj)
         end
         return qobjs
@@ -226,42 +267,42 @@ function codegen_ctrl(::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
     gt <: RoutineSpec && error("non-intrinsic routine used: $gt, turn on the optimizer or revise your program")
     gt <: IntrinsicRoutine || error("invalid gate type: $gate::$gt")
 
-    all(ctrl.configs) || error("inverse ctrl is not supported in Qobj backend")
+    all(ctrl.flags) || error("inverse ctrl is not supported in Qobj backend")
     gate isa IntrinsicRoutine || error("gate $gate is not constant")
 
     # control gates support in qelib1.inc
     qobj = @match (gate, length(ctrl), length(locs)) begin
-        (::Intrinsics.XGate, 1, 1) => Dict(
+        (::Intrinsics.XGate, 1, 1) => Qobj(
             "name" => "cx",
         )
 
-        (::Intrinsics.YGate, 1, 1) => Dict(
+        (::Intrinsics.YGate, 1, 1) => Qobj(
             "name" => "cy",
         )
 
-        (::Intrinsics.ZGate, 1, 1) => Dict(
+        (::Intrinsics.ZGate, 1, 1) => Qobj(
             "name" => "cz",
         )
 
-        (::Intrinsics.HGate, 1, 1) => Dict(
+        (::Intrinsics.HGate, 1, 1) => Qobj(
             "name" => "ch",   
         )
 
-        (::Intrinsics.XGate, 2, 1) => Dict(
+        (::Intrinsics.XGate, 2, 1) => Qobj(
             "name" => "ccx",
         )
 
-        (Intrinsics.Rz(θ), 1, 1) => Dict(
+        (Intrinsics.Rz(θ), 1, 1) => Qobj(
             "name" => "crz",
             "params" => Any[θ],
         )
 
-        (Intrinsics.shift(θ), 1, 1) => Dict(
+        (Intrinsics.shift(θ), 1, 1) => Qobj(
             "name" => "cu1",
             "params" => Any[θ],
         )
 
-        (Intrinsics.UGate(α, β, γ), 1, 1) => Dict(
+        (Intrinsics.UGate(α, β, γ), 1, 1) => Qobj(
             "name" => "cu3",
             "params" => Any[α, β, γ],
         )
@@ -269,7 +310,7 @@ function codegen_ctrl(::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
         _ => error("invalid control statement for Qobj backend, got: $(st.stmt)")
     end
 
-    qobj["qubits"] = Int[collect(ctrl.storage)..., collect(locs.storage)...] .- 1
+    qobj["qubits"] = vcat(get_qubit_addrs(ctrl, st), get_qubit_addrs(locs, st))
     return qobj
 end
 
@@ -282,9 +323,9 @@ function codegen_measure(::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
         locs = obtain_const(st.stmt.args[2], ci)::Locations
     end
 
-    qobj = Dict(
+    qobj = Qobj(
         "name" => "measure",
-        "qubits" => collect(locs) .- 1,
+        "qubits" => get_qubit_addrs(locs, st),
         "memory" => collect(st.memory_offset:st.memory_offset+length(locs)-1),
     )
 
@@ -298,9 +339,9 @@ end
 function codegen_barrier(::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
     locs = obtain_const(st.stmt.args[2], ci)::Locations
 
-    return Dict(
+    return Qobj(
         "name" => "barrier",
-        "qubits" => collect(locs) .- 1,
+        "qubits" => get_qubit_addrs(locs, st),
     )
 end
 
@@ -332,9 +373,9 @@ function codegen_ifnot(::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
         if qt === :gate
             gate, gt, locs = obtain_const_gate_stmt(st.stmt, ci)
             if gate === Intrinsics.X
-                return Dict(
+                return Qobj(
                     "name" => "reset",
-                    "qubits" => collect(locs.storage) .- 1,
+                    "qubits" => get_qubit_addrs(locs, st),
                 )
             end
         end

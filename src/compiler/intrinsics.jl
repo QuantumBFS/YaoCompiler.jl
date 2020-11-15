@@ -68,7 +68,7 @@ for name in [:shift, :Rx, :Ry, :Rz]
     @eval struct $name{T <: Real} <: IntrinsicRoutine
         θ::T
 
-        @noinline $name(θ) = new{typeof(θ)}(θ)
+        $name(θ) = new{typeof(θ)}(θ)
     end
 
     @eval YaoCompiler.is_one_qubit_gate(::Type{<:$name}) = true

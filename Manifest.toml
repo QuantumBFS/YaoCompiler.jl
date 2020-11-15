@@ -126,7 +126,7 @@ version = "0.2.0"
 
 [[OpenQASM]]
 deps = ["RBNF"]
-git-tree-sha1 = "1c99778e7f48aa0e3b98bd4fa8c49bf1ba13e127"
+git-tree-sha1 = "bef746198ed7b9d1c29f4a7a9987b7e3d3e238ca"
 repo-rev = "master"
 repo-url = "https://github.com/QuantumBFS/OpenQASM.jl.git"
 uuid = "a8821629-a4c0-4df7-9e00-12969ff383a7"

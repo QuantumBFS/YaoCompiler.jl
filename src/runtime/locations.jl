@@ -32,7 +32,7 @@ Other types will be converted to the storage type via `Tuple`.
 struct Locations{T<:LocationStorageTypes} <: AbstractLocations
     storage::T
 
-    function Locations(x::T) where {T<:LocationStorageTypes}
+    Base.@pure function Locations(x::T) where {T<:LocationStorageTypes}
         new{T}(x)
     end
 end
@@ -81,47 +81,51 @@ end
 
 @inline map_error(parent, sub) = throw(LocationError("got $sub in parent space $parent"))
 
-@inline function map_check(parent::Locations{Int}, sub::Locations{Int})
-    sub.storage == 1 || map_error(parent, sub)
+@noinline function map_check(parent, sub)
+    map_check_nothrow(parent, sub) || map_error(parent, sub)
 end
 
-@inline function map_check(parent::Locations{Int}, sub::Locations{Tuple{Int}})
-    sub.storage[1] == 1 || map_error(parent, sub)
+function map_check_nothrow(parent::Locations{Int}, sub::Locations{Int})
+    sub.storage == 1
 end
 
-@inline function map_check(parent::Locations{Int}, sub::Locations{NTuple{N,Int}}) where {N}
-    map_error(parent, sub)
+function map_check_nothrow(parent::Locations{Int}, sub::Locations{Tuple{Int}})
+    sub.storage[1] == 1
 end
 
-@inline function map_check(parent::Locations{Int}, sub::Locations{UnitRange{Int}})
-    (length(sub) == 1) && (sub.storage.start == 1) || map_error(parent, sub)
+function map_check_nothrow(parent::Locations{Int}, sub::Locations{NTuple{N,Int}}) where {N}
+    false
 end
 
-@inline function map_check(parent::Locations{NTuple{N,Int}}, sub::Locations{Int}) where {N}
-    1 <= sub.storage <= N || map_error(parent, sub)
+function map_check_nothrow(parent::Locations{Int}, sub::Locations{UnitRange{Int}})
+    (length(sub) == 1) && (sub.storage.start == 1)
 end
 
-@inline function map_check(
+function map_check_nothrow(parent::Locations{NTuple{N,Int}}, sub::Locations{Int}) where {N}
+    1 <= sub.storage <= N
+end
+
+function map_check_nothrow(
     parent::Locations{NTuple{N,Int}},
     sub::Locations{NTuple{M,Int}},
 ) where {N,M}
-    all(x -> (1 <= x <= N), sub.storage) || map_error(parent, sub)
+    all(x -> (1 <= x <= N), sub.storage)
 end
 
-@inline function map_check(parent::Locations{NTuple{N,Int}}, sub::Locations{UnitRange{Int}}) where {N}
-    (1 <= sub.storage.start) && (sub.storage.stop <= N) || map_error(parent, sub)
+function map_check_nothrow(parent::Locations{NTuple{N,Int}}, sub::Locations{UnitRange{Int}}) where {N}
+    (1 <= sub.storage.start) && (sub.storage.stop <= N)
 end
 
-@inline function map_check(parent::Locations{UnitRange{Int}}, sub::Locations{Int})
-    1 <= sub.storage <= length(parent) || map_error(parent, sub)
+function map_check(parent::Locations{UnitRange{Int}}, sub::Locations{Int})
+    1 <= sub.storage <= length(parent)
 end
 
-@inline function map_check(parent::Locations{UnitRange{Int}}, sub::Locations{NTuple{N,Int}}) where {N}
-    all(x -> (1 <= x <= length(parent)), sub.storage) || map_error(parent, sub)
+function map_check(parent::Locations{UnitRange{Int}}, sub::Locations{NTuple{N,Int}}) where {N}
+    all(x -> (1 <= x <= length(parent)), sub.storage)
 end
 
-@inline function map_check(parent::Locations{UnitRange{Int}}, sub::Locations{UnitRange{Int}})
-    (1 <= sub.storage.start) && (sub.storage.stop <= length(parent)) || map_error(parent, sub)
+function map_check(parent::Locations{UnitRange{Int}}, sub::Locations{UnitRange{Int}})
+    (1 <= sub.storage.start) && (sub.storage.stop <= length(parent))
 end
 
 # comparing
@@ -130,19 +134,78 @@ function Base.:(==)(l1::Locations, l2::Locations)
     return all(l1.storage .== l2.storage)
 end
 
-# CtrlLocations
-struct CtrlLocations{T<:LocationStorageTypes} <: AbstractLocations
-    storage::Locations{T}
-    configs::BitVector
+struct CtrlFlags{L, N}
+    data::NTuple{N, UInt64}
+end
 
-    CtrlLocations(storage::Locations{T}, configs::BitVector) where T = new{T}(storage, configs)
+function flags(bits::Vararg{UInt8, L}) where L
+    N = Base.num_bit_chunks(L)
+    data = ntuple(N) do k
+        x = UInt64(0)
+        p = UInt64(0)
+        for i in (64k-63):min(64k, L)
+            x += bits[i] << p
+            p += UInt64(1)
+        end
+        return x
+    end
+    return CtrlFlags{L, N}(data)
+end
+
+function _default_flags(L::Int)
+    N = Base.num_bit_chunks(L)
+    return CtrlFlags{L, N}(ntuple(x->UInt64(0), N))
+end
+
+function Base.all(flags::CtrlFlags)
+    return all(iszero, flags.data)
+end
+
+function Base.getindex(flags::CtrlFlags, idx::Int)
+    i1, i2 = Base.get_chunks_id(idx)
+    u = UInt64(1) << i2
+    r = (flags.data[i1] & u) == 0
+    return r
+end
+
+function merge_flags(a::CtrlFlags{LA}, b::CtrlFlags{LB}) where {LA, LB}
+    L = LA + LB
+    N = Base.num_bit_chunks(L)
+    last_chunk_len = rem(LA, 64)
+
+    if iszero(last_chunk_len)
+        return CtrlFlags{L, N}((a.data..., b.data...))
+    else
+        return flags(ntuple(k->UInt8(!a[k]), LA)..., ntuple(k->UInt8(!b[k]), LB)...)
+    end
+end
+
+function Base.show(io::IO, x::CtrlFlags{L, N}) where {L, N}
+    print(io, "CtrlFlags(")
+    p = L-1
+    for d in x.data
+        for k in 0:min(63, p)
+            print(io, d >> k & UInt64(1))
+        end
+        p -= 64
+    end
+    print(io, ")")
+end
+
+# CtrlLocations
+struct CtrlLocations{T<:LocationStorageTypes, L, N} <: AbstractLocations
+    storage::Locations{T}
+    flags::CtrlFlags{L, N}
+
+    Base.@pure CtrlLocations(storage::Locations{T}, flags::CtrlFlags{L, N}) where {T, L, N} =
+        new{T, L, N}(storage, flags)
 end
 
 # skip itself
 CtrlLocations(x::CtrlLocations) = x
-CtrlLocations(x::Locations) = CtrlLocations(x, trues(length(x)))
-CtrlLocations(x::LocationStorageTypes, cfg::Union{Tuple, Vector, BitVector}) =
-    CtrlLocations(Locations(x), BitVector(map(Bool, cfg)))
+CtrlLocations(x::Locations) = CtrlLocations(x, _default_flags(length(x)))
+CtrlLocations(x::LocationStorageTypes, configs::NTuple{L, UInt8}) where L =
+    CtrlLocations(Locations(x), flags(configs...))
 CtrlLocations(xs...) = CtrlLocations(Locations(xs...))
 
 Base.length(l::CtrlLocations) = length(l.storage)
@@ -177,13 +240,14 @@ function print_locations(io::IO, x::Locations)
 end
 
 function print_locations(io::IO, x::CtrlLocations)
-    if all(x.configs)
+    if all(x.flags)
         print_locations(io, x.storage)
     else
         nlocations = length(x)
         for i in 1:nlocations
             l = x.storage.storage[i]
-            if x.configs[i]
+            if x.flags[i]
+                @show "pass"
                 printstyled(io, l; color=:light_blue)
             else
                 printstyled(io, "!", l; color=:light_blue)
@@ -197,16 +261,16 @@ function print_locations(io::IO, x::CtrlLocations)
 end
 
 function merge_locations(l1::CtrlLocations, l2::CtrlLocations)
-    CtrlLocations(merge_locations(l1.storage, l2.storage), vcat(l1.configs, l2.configs))
+    CtrlLocations(merge_locations(l1.storage, l2.storage), merge_flags(l1.flags, l2.flags))
 end
 
 # NOTE: CtrlLocations can not be mapped by Locations
 @inline unsafe_mapping(parent::Locations, sub::CtrlLocations) =
-    CtrlLocations(unsafe_mapping(parent, sub.storage), sub.configs)
-@inline  map_check(parent::Locations, sub::CtrlLocations) = map_check(parent, sub.storage)
+    CtrlLocations(unsafe_mapping(parent, sub.storage), sub.flags)
+map_check_nothrow(parent::Locations, sub::CtrlLocations) = map_check_nothrow(parent, sub.storage)
 
 Base.:(==)(l1::CtrlLocations, l2::CtrlLocations) =
-    (l1.storage == l2.storage) && (l1.configs == l2.configs)
+    (l1.storage == l2.storage) && (l1.flags == l2.flags)
 
 # parent location has to be Locations since CtrlLocations can't be parent
 @inline function Base.getindex(parent::Locations, sub::AbstractLocations)

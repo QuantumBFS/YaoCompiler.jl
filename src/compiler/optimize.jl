@@ -16,12 +16,15 @@ Base.iterate(uses::UseRefIterator, st) = Core.Compiler.iterate(uses, st)
 Base.iterate(p::Core.Compiler.Pair) = Core.Compiler.iterate(p)
 Base.iterate(p::Core.Compiler.Pair, st) = Core.Compiler.iterate(p, st)
 
+Base.getindex(m::Core.Compiler.MethodLookupResult, idx::Int) = Core.Compiler.getindex(m, idx)
+
 # TODO: we might need a better interface for this when we have more passes
 function run_passes(ci::CodeInfo, nargs::Int, sv::OptimizationState, passes::Vector{Symbol})
     # NOTE: these parts are copied from Core.Compiler
     preserve_coverage = coverage_enabled(sv.mod)
     ir = convert_to_ircode(ci, copy_exprargs(ci.code), preserve_coverage, nargs, sv)
     ir = slot2reg(ir, ci, nargs, sv)
+
     ir = compact!(ir)
     ir = ssa_inlining_pass!(ir, ir.linetable, sv.inlining, ci.propagate_inbounds)
     ir = compact!(ir)
@@ -29,31 +32,34 @@ function run_passes(ci::CodeInfo, nargs::Int, sv::OptimizationState, passes::Vec
     ir = adce_pass!(ir)
     ir = type_lift_pass!(ir)
     ir = compact!(ir)
-    # ir = elim_location_mapping!(ir)
+
+    # make sure all const are inlined
+    # Julia itself may not inline all
+    # the const values we want, e.g gates
+    ir = inline_const!(ir)
     ir = compact!(ir)
-    
+    ir = elim_map_check!(ir)
+    ir = compact!(ir)
     # group quantum statements so we can work on
     # larger quantum circuits before we start optimizations
-    # ir = group_quantum_stmts!(ir)
-    # ir = propagate_consts_bb!(ir)
-    # ir = compact!(ir)
+    ir = group_quantum_stmts!(ir)
 
-    # # run quantum passes
-    # if !isempty(passes)
-    #     ir = convert_to_yaoir(ir)
+    # run quantum passes
+    if !isempty(passes)
+        ir = convert_to_yaoir(ir)
         
-    #     if :zx in passes
-    #         ir = run_zx_passes(ir)::YaoIR
-    #     end
+        if :zx in passes
+            ir = run_zx_passes(ir)::YaoIR
+        end
 
-    #     ir = ir.ir
-    # end
+        ir = ir.ir
+    end
 
-    # ir = compact!(ir)
-    # # insert our own passes after Julia's pass
-    # if Core.Compiler.JLOptions().debug_level == 2
-    #     @timeit "verify 3" (verify_ir(ir); verify_linetable(ir.linetable))
-    # end
+    ir = compact!(ir)
+    # insert our own passes after Julia's pass
+    if Core.Compiler.JLOptions().debug_level == 2
+        @timeit "verify 3" (verify_ir(ir); verify_linetable(ir.linetable))
+    end
     return ir
 end
 
@@ -150,23 +156,6 @@ function optimize(opt::OptimizationState, params::YaoOptimizationParams, @nospec
         end
     end
     nothing
-end
-
-function elim_location_mapping!(ir::IRCode)
-    compact = Core.Compiler.IncrementalCompact(ir)
-    for ((_, idx), stmt) in compact
-        isa(stmt, Expr) || continue
-        stmt.head === :invoke && stmt.args[2] === maploc || continue
-
-        @show stmt.args[3]
-        if stmt.args[3] isa AbstractLocations &&
-                stmt.args[4] isa AbstractLocations
-            @show stmt
-            # TODO: insert unreachable if this errors
-            compact[idx] = Expr(:test)
-        end
-    end
-    return Core.Compiler.finish(compact)
 end
 
 function group_quantum_stmts_perm(ir::IRCode)
@@ -283,135 +272,103 @@ end
 # NOTE: this perform simple constant propagation
 # inside basic blocks to get better format of
 # the quantum statements
-function propagate_consts_bb!(ir::IRCode)
-    for (i, e) in enumerate(ir.stmts.inst)
-        val = abstract_eval_statement(e, ir)
-        # update if it's a constant
-        if val isa Const
-            ir.stmts.type[i] = val
+
+# foce inline all constants
+function is_arg_allconst(args)
+    for arg in args
+        if arg isa SSAValue || arg isa Argument
+            return false
+        elseif !is_inlineable_constant(arg) && !isa(arg, QuoteNode)
+            return false
         end
     end
+    return true
+end
 
-    for (i, e) in enumerate(ir.stmts.inst)
-        e isa Expr || continue
-        if e.head === :call
-            ea = e.args
-            n = length(ea)
-            args = Vector{Any}(undef, n)
-            @inbounds for i in 1:n
-                ai = abstract_eval_value(ea[i], ir)
-                if ai isa Const
-                    args[i] = ai.val
-                else
-                    args[i] = ea[i]
+function inline_const!(ir::IRCode)
+    ssa_const = Any[nothing for _ in 1:length(ir.stmts)]
+
+    for i in 1:length(ir.stmts)
+        stmt = ir.stmts[i][:inst]
+        stmt isa Expr || continue
+        
+        stmt.args = map(stmt.args) do x
+            if x isa SSAValue && !(ssa_const[x.id] === nothing)
+                return quoted(ssa_const[x.id])
+            else
+                return x
+            end
+        end
+
+        if stmt.head === :call
+            sig = Core.Compiler.call_sig(ir, stmt)
+            f, ft, atypes = sig.f, sig.ft, sig.atypes
+            allconst = true
+            for atype in sig.atypes
+                if !isa(atype, Const)
+                    allconst = false
+                    break
                 end
             end
 
-            ir.stmts.inst[i] = Expr(e.head, args...)
-        elseif e.head === :invoke
-            ea = e.args[2:end]
-            n = length(ea)
-            args = Vector{Any}(undef, n)
-            @inbounds for i in 1:n
-                ai = abstract_eval_value(ea[i], ir)
-                if ai isa Const
-                    args[i] = ai.val
-                else
-                    args[i] = ea[i]
-                end
+            if allconst && isa(f, Core.IntrinsicFunction) && is_pure_intrinsic_infer(f) && intrinsic_nothrow(f, atypes[2:end])
+                fargs = anymap(x::Const->x.val, atypes[2:end])
+                val = f(fargs...)
+                ir.stmts[i][:inst] = quoted(val)
+                ssa_const[i] = val
+            elseif allconst && isa(f, Core.Builtin) && f === Core.tuple
+                fargs = anymap(x::Const->x.val, atypes[2:end])
+                val = (fargs..., )
+                ir.stmts[i][:inst] = quoted(val)
+                ssa_const[i] = val
             end
-            ir.stmts.inst[i] = Expr(:invoke, e.args[1], args...)
+        elseif stmt.head === :new
+            exargs = stmt.args[2:end]
+            allconst = is_arg_allconst(exargs)
+            t = stmt.args[1]
+            if allconst && isconcretetype(t) && !t.mutable
+                args = anymap(exargs) do x
+                    if x isa QuoteNode
+                        return x.value
+                    else
+                        return x
+                    end
+                end
+                val = ccall(:jl_new_structv, Any, (Any, Ptr{Cvoid}, UInt32), t, args, length(args))
+
+                ir.stmts[i][:inst] = quoted(val)
+                ssa_const[i] = val
+            end
         end
     end
     return ir
 end
 
-function abstract_eval_statement(@nospecialize(e), ir::IRCode)
-    e isa Expr || return abstract_eval_special_value(e, ir)
-    e = e::Expr
-    is_quantum_statement(e) && return Any
-    if e.head === :call
-        ea = e.args
-        n = length(ea)
-        args = Vector{Any}(undef, n)
-        @inbounds for i = 1:n
-            ai = abstract_eval_value(ea[i], ir)
-            # the return value is unlikely to be
-            # constant if the argument is non-constant
-            # after inlining
-            if !(ai isa Const)
-                return Any
-            end
-            args[i] = ai.val
-        end
-        f = args[1]
-        try
-            return Const(f(args[2:end]...))
-        catch
-        end
-    elseif e.head === :new
-        t = Core.Compiler.instanceof_tfunc(abstract_eval_value(e.args[1], ir))[1]
-        if isconcretetype(t) && !t.mutable
-            args = Vector{Any}(undef, length(e.args)-1)
-            for i = 2:length(e.args)
-                at = abstract_eval_value(e.args[i], ir)
-                if at isa Const
-                    args[i-1] = at.val
-                else
-                    return Any
+function elim_map_check!(ir::IRCode)
+    for i in 1:length(ir.stmts)
+        stmt = ir.stmts[i][:inst]
+        stmt isa Expr || continue
+
+        if stmt.head === :invoke && stmt.args[2] === GlobalRef(YaoCompiler, :map_check)
+            exargs = stmt.args[3:end]
+            allconst = is_arg_allconst(exargs)
+
+            if allconst
+                args = anymap(exargs) do x
+                    if x isa QuoteNode
+                        return x.value
+                    else
+                        return x
+                    end
+                end
+                
+                if map_check_nothrow(args[1], args[2])
+                    ir.stmts[i][:inst] = nothing
                 end
             end
-            return Const(ccall(:jl_new_structv, Any, (Any, Ptr{Cvoid}, UInt32), t, args, length(args)))
         end
     end
-    return Any
-end
-
-function abstract_eval_special_value(@nospecialize(e), ir::IRCode)
-    if isa(e, QuoteNode)
-        return Const((e::QuoteNode).value)
-    elseif isa(e, SSAValue)
-        return abstract_eval_ssavalue(e, ir)
-    elseif isa(e, Slot)
-        return ir.argtypes[slot_id(e)]
-    elseif isa(e, GlobalRef)
-        return Core.Compiler.abstract_eval_global(e.mod, e.name)
-    elseif isa(e, Core.PhiNode)
-        return Any
-    elseif isa(e, Core.PhiCNode)
-        return Any
-    end
-
-    return Const(e)
-end
-
-function abstract_eval_ssavalue(e::SSAValue, ir::IRCode)
-    t = ir.stmts.type[e.id]
-    t isa Const && return t
-    return Any # we don't need non-constants
-end
-
-function abstract_eval_value(@nospecialize(e), ir::IRCode)
-    if e isa Expr
-        return abstract_eval_value_expr(e, ir)
-    else
-        return abstract_eval_special_value(e, ir)
-    end
-end
-
-function abstract_eval_value_expr(e::Expr, ir::IRCode)
-    if e.head === :static_parameter
-        n = e.args[1]
-        t = Any
-        if 1 <= n <= length(ir.sptypes)
-            t = ir.sptypes[n]
-        end
-        return t
-    elseif e.head === :boundscheck
-        return Bool
-    else
-        return Any
-    end
+    return ir
 end
 
 struct YaoIR

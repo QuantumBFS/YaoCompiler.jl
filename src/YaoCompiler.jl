@@ -28,7 +28,8 @@ using Core.Compiler: InferenceParams, InferenceResult, OptimizationParams, Optim
 using Core.Compiler: get_world_counter, get_inference_cache, may_optimize,
     isconstType, isconcretetype, widenconst, isdispatchtuple, isinlineable,
     is_inlineable_constant, copy_exprargs, convert_to_ircode, coverage_enabled, argtypes_to_type,
-    userefs, UseRefIterator, UseRef, MethodResultPure,
+    userefs, UseRefIterator, UseRef, MethodResultPure, is_pure_intrinsic_infer, intrinsic_nothrow,
+    quoted, anymap,
     # Julia passes
     compact!, ssa_inlining_pass!, getfield_elim_pass!, adce_pass!, type_lift_pass!,
     verify_linetable, verify_ir, slot2reg

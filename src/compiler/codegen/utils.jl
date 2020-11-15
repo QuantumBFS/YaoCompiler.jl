@@ -7,6 +7,8 @@ function obtain_const_or_stmt(@nospecialize(x), ci::CodeInfo)
         else
             return stmt, widenconst(typ)
         end
+    elseif x isa QuoteNode
+        return x.value, typeof(x.value)
     elseif x isa Const
         return x.val, typeof(x.val)
     elseif x isa GlobalRef
