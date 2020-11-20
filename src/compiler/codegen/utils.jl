@@ -56,11 +56,11 @@ function obtain_const_measure_stmt(stmt, ci::CodeInfo)
         cvar = nothing
         body = stmt
     end
-    
-    if stmt.head === :invoke
-        locs = obtain_const(stmt.args[3], ci)::Locations
-    elseif stmt.head === :call
-        locs = obtain_const(stmt.args[2], ci)::Locations
+
+    if body.head === :invoke
+        locs = obtain_const(body.args[3], ci)::Locations
+    elseif body.head === :call
+        locs = obtain_const(body.args[2], ci)::Locations
     end
     return cvar, locs
 end
