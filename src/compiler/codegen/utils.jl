@@ -49,6 +49,22 @@ function obtain_qasm_ifnot_cond(cond::SSAValue, ci::CodeInfo)
     return creg, x
 end
 
+function obtain_const_measure_stmt(stmt, ci::CodeInfo)
+    if stmt.head === :(=)
+        cvar, body = _extract_measure(stmt)
+    else
+        cvar = nothing
+        body = stmt
+    end
+    
+    if stmt.head === :invoke
+        locs = obtain_const(stmt.args[3], ci)::Locations
+    elseif stmt.head === :call
+        locs = obtain_const(stmt.args[2], ci)::Locations
+    end
+    return cvar, locs
+end
+
 function obtain_const_gate_stmt(stmt, ci::CodeInfo)
     if stmt.head === :invoke
         gate, gt = obtain_const_or_stmt(stmt.args[3], ci)

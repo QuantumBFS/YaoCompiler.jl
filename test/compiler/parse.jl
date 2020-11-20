@@ -80,10 +80,33 @@ end # TestParse
 using YaoCompiler
 using YaoCompiler.Intrinsics
 
+@device function qobj_test()
+    1 => X
+    2 => X
+    @ctrl (1, 2) 3=>X
+    @ctrl 1 2=>X
+    c = @measure 1:3
+    return c
+end
+
+
+ci, = @code_yao optimize=true qobj_test()
+target = YaoCompiler.TargetQobjQASM()
+qobj = YaoCompiler.codegen(target, ci)
+
+YaoCompiler.measure_ssa_uses!(Set{Int64}(), ci)
+using InteractiveUtils
+clipboard(string(qobj))
+
+qobj["header"]
+qobj["config"]
+qobj["instructions"]
+
 qasm"""OPENQASM 2.0; 
 include "qelib1.inc";
 """
 
+ci, = @code_yao optimize=true circuit()
 ast = @code_qasm optimize=true passes=:julia gate=true cu3(0.1, 0.2, 0.3)
 ast = @code_qasm optimize=true circuit()
 
