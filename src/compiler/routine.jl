@@ -167,35 +167,34 @@ macro gate(ex::Expr)
     return esc(gate_m(ex))
 end
 
-macro measure(args...)
-    length(args) || throw(ArgumentError("@meausre expects at most 3 arguments"))
+macro measure(locs)
+    # # kwargs
+    # option = Expr(:parameters)
+    # args = []
+    # for each in args
+    #     if each isa Expr && each.head == :(=)
+    #         key, val = each.args
+    #         if key === :reset_to
+    #             option = Expr(:parameters, Expr(:kw, key, val))
+    #         elseif key === :remove
+    #             val isa Bool ||
+    #                 throw(ArgumentError("`remove` keyword argument should be a constant value"))
+    #             option = Expr(:parameters, Expr(:kw, key, val))
+    #         else
+    #             throw(ParseError("unknown measurement option $(each)"))
+    #         end
+    #     else
+    #         push!(args, each)
+    #     end
+    # end
 
-    # kwargs
-    option = Expr(:parameters)
-    args = []
-    for each in args
-        if each isa Expr && each.head == :(=)
-            key, val = each.args
-            if key === :reset_to
-                option = Expr(:parameters, Expr(:kw, key, val))
-            elseif key === :remove
-                val isa Bool ||
-                    throw(ArgumentError("`remove` keyword argument should be a constant value"))
-                option = Expr(:parameters, Expr(:kw, key, val))
-            else
-                throw(ParseError("unknown measurement option $(each)"))
-            end
-        else
-            push!(args, each)
-        end
-    end
-
-    locs = :($Locations($(args[1])))
-    if length(args) == 1 # only has location
-        return Expr(:call, GlobalRef(Semantic, :measure), option, locs, nothing)
-    elseif length(args) == 2 # has operator
-        return Expr(:call, GlobalRef(Semantic, :measure), option, locs, args[2])
-    end
+    locs = :($Locations($locs))
+    return Expr(:call, GlobalRef(Semantic, :measure), locs)
+    # if length(args) == 1 # only has location
+    #     return Expr(:call, GlobalRef(Semantic, :measure), option, locs, nothing)
+    # elseif length(args) == 2 # has operator
+    #     return Expr(:call, GlobalRef(Semantic, :measure), option, locs, args[2])
+    # end
 end
 
 macro barrier(locs)
