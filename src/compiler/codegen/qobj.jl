@@ -131,6 +131,7 @@ function codegen(target::TargetQobjQASM, ci::CodeInfo)
         "header" => Qobj(
             "name" => routine_name(spec),
             "n_qubits" => st.nqubits,
+            "memory_slots" => st.memory_slots,
         ),
         "config" => codegen_config(target, ci, st),
         "instructions" => codegen_inst(target, ci, st),
