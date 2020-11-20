@@ -57,11 +57,7 @@ function CodeGenQobjState(ci::CodeInfo)
         qt = quantum_stmt_type(stmt)
 
         if qt === :measure
-            _, x = _extract_measure(stmt)
-            # NOTE: locs must be Locations in this codegen
-            # we should check it again during code
-            # validation stage
-            locs = obtain_const(x, ci)::Locations
+            _, locs = obtain_const_measure_stmt(stmt, ci)
             allocate_qobj_qubits!(qubits_map, locs, qmem_ptr)
             memory_slots += length(locs)
 
@@ -111,7 +107,10 @@ function measure_ssa_uses!(used, ci::CodeInfo)
     end
 
     for (v, stmt) in eachstmt(ci)
-        for useref in userefs(stmt)
+        stmt isa GotoIfNot || continue
+        cond = stmt.cond
+        cond_stmt = ci.code[stmt.cond.id]
+        for useref in userefs(cond_stmt)
             val = useref[]
             if isa(val, SSAValue) && val.id in measure_ssa
                 push!(used, val.id)
@@ -127,8 +126,12 @@ end
 
 function codegen(target::TargetQobjQASM, ci::CodeInfo)
     st = CodeGenQobjState(ci)
+    spec = ci.parent.specTypes.parameters[2]
     prog = Qobj(
-        "header" => Qobj(),
+        "header" => Qobj(
+            "name" => routine_name(spec),
+            "n_qubits" => st.nqubits,
+        ),
         "config" => codegen_config(target, ci, st),
         "instructions" => codegen_inst(target, ci, st),
     )
@@ -136,6 +139,7 @@ end
 
 function codegen_config(target::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
     return Qobj(
+        "n_qubits" => st.nqubits,
         "shots" => target.nshots,
         "memory_slots" => st.memory_slots, # TODO: generate this from ci
         "seed" => target.seed,
@@ -315,13 +319,7 @@ function codegen_ctrl(::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
 end
 
 function codegen_measure(::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
-    if st.stmt.head === :(=)
-        slot = st.stmt.args[1]::SlotNumber
-        measure_ex = st.stmt.args[2]
-        locs = obtain_const(measure_ex.args[2], ci)::Locations
-    else
-        locs = obtain_const(st.stmt.args[2], ci)::Locations
-    end
+    _, locs = obtain_const_measure_stmt(st.stmt, ci)
 
     qobj = Qobj(
         "name" => "measure",
