@@ -101,8 +101,7 @@ function move_to_first_quantum_stmt(ci::CodeInfo, st)
     while pc′ <= length(ci.code)
         stmt′ = ci.code[pc′]
         if stmt′ isa Expr
-            is_quantum_statement(stmt′)
-            break
+            is_quantum_statement(stmt′) && break
         else
             # NOTE:
             # we can allow some constant statements
