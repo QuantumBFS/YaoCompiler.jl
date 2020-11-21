@@ -32,7 +32,6 @@ function obtain_qasm_ifnot_cond(cond::SSAValue, ci::CodeInfo)
     cond_stmt = ci.code[cond.id]
 
     (cond_stmt isa Expr && cond_stmt.head === :call) || error("invalid cond statement: $cond_stmt")
-
     x = obtain_const(cond_stmt.args[2], ci)
     if x isa Int
         creg = cond_stmt.args[3]

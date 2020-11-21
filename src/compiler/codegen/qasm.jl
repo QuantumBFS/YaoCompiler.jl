@@ -173,17 +173,15 @@ function RegMap(target, ci::CodeInfo)
         qt = quantum_stmt_type(stmt)
 
         if qt === :measure
-            if stmt.head === :(=)
-                slot = stmt.args[1]::SlotNumber
-                measure_ex = stmt.args[2]
-                locs = obtain_const(measure_ex.args[2], ci)::Locations
-                name = string(ci.slotnames[slot.id])
-                cbits[slot] = (name, length(locs))
+            cvar, locs = obtain_const_measure_stmt(stmt, ci)
+            if cvar isa SlotNumber
+                name = string(ci.slotnames[cvar.id])
+                cbits[cvar] = (name, length(locs))
             else
-                locs = obtain_const(stmt.args[2], ci)::Locations
                 name = creg_name(v)
                 cbits[v] = (name, length(locs))
             end
+
             # allocate new register for measurements
             allocate_new_qreg!(locs_to_regs, locs)
         elseif qt === :barrier
