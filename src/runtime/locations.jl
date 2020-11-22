@@ -134,11 +134,11 @@ function Base.:(==)(l1::Locations, l2::Locations)
     return all(l1.storage .== l2.storage)
 end
 
-struct CtrlFlags{L, N}
-    data::NTuple{N, UInt64}
+struct CtrlFlags{L,N}
+    data::NTuple{N,UInt64}
 end
 
-function flags(bits::Vararg{UInt8, L}) where L
+function flags(bits::Vararg{UInt8,L}) where {L}
     N = Base.num_bit_chunks(L)
     data = ntuple(N) do k
         x = UInt64(0)
@@ -149,12 +149,12 @@ function flags(bits::Vararg{UInt8, L}) where L
         end
         return x
     end
-    return CtrlFlags{L, N}(data)
+    return CtrlFlags{L,N}(data)
 end
 
 function _default_flags(L::Int)
     N = Base.num_bit_chunks(L)
-    return CtrlFlags{L, N}(ntuple(x->UInt64(0), N))
+    return CtrlFlags{L,N}(ntuple(x -> UInt64(0), N))
 end
 
 function Base.all(flags::CtrlFlags)
@@ -168,21 +168,21 @@ function Base.getindex(flags::CtrlFlags, idx::Int)
     return r
 end
 
-function merge_flags(a::CtrlFlags{LA}, b::CtrlFlags{LB}) where {LA, LB}
+function merge_flags(a::CtrlFlags{LA}, b::CtrlFlags{LB}) where {LA,LB}
     L = LA + LB
     N = Base.num_bit_chunks(L)
     last_chunk_len = rem(LA, 64)
 
     if iszero(last_chunk_len)
-        return CtrlFlags{L, N}((a.data..., b.data...))
+        return CtrlFlags{L,N}((a.data..., b.data...))
     else
-        return flags(ntuple(k->UInt8(!a[k]), LA)..., ntuple(k->UInt8(!b[k]), LB)...)
+        return flags(ntuple(k -> UInt8(!a[k]), LA)..., ntuple(k -> UInt8(!b[k]), LB)...)
     end
 end
 
-function Base.show(io::IO, x::CtrlFlags{L, N}) where {L, N}
+function Base.show(io::IO, x::CtrlFlags{L,N}) where {L,N}
     print(io, "CtrlFlags(")
-    p = L-1
+    p = L - 1
     for d in x.data
         for k in 0:min(63, p)
             print(io, d >> k & UInt64(1))
@@ -193,18 +193,18 @@ function Base.show(io::IO, x::CtrlFlags{L, N}) where {L, N}
 end
 
 # CtrlLocations
-struct CtrlLocations{T<:LocationStorageTypes, L, N} <: AbstractLocations
+struct CtrlLocations{T<:LocationStorageTypes,L,N} <: AbstractLocations
     storage::Locations{T}
-    flags::CtrlFlags{L, N}
+    flags::CtrlFlags{L,N}
 
-    Base.@pure CtrlLocations(storage::Locations{T}, flags::CtrlFlags{L, N}) where {T, L, N} =
-        new{T, L, N}(storage, flags)
+    Base.@pure CtrlLocations(storage::Locations{T}, flags::CtrlFlags{L,N}) where {T,L,N} =
+        new{T,L,N}(storage, flags)
 end
 
 # skip itself
 CtrlLocations(x::CtrlLocations) = x
 CtrlLocations(x::Locations) = CtrlLocations(x, _default_flags(length(x)))
-CtrlLocations(x::LocationStorageTypes, configs::NTuple{L, UInt8}) where L =
+CtrlLocations(x::LocationStorageTypes, configs::NTuple{L,UInt8}) where {L} =
     CtrlLocations(Locations(x), flags(configs...))
 CtrlLocations(xs...) = CtrlLocations(Locations(xs...))
 
@@ -248,7 +248,7 @@ function print_locations(io::IO, x::CtrlLocations)
             l = x.storage.storage[i]
             if x.flags[i]
                 @show "pass"
-                printstyled(io, l; color=:light_blue)
+                printstyled(io, l; color = :light_blue)
             else
                 printstyled(io, "!", l; color = :light_blue)
             end

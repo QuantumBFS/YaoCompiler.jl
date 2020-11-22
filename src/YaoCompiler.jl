@@ -21,15 +21,53 @@ using YaoAPI
 using BitBasis
 using ZXCalculus
 
-using Core: CodeInfo, SSAValue, Const, PartialStruct, Slot, GotoIfNot, GotoNode, SlotNumber, Argument, ReturnNode
-using Core.Compiler: InferenceParams, InferenceResult, OptimizationParams, OptimizationState, Bottom,
-    AbstractInterpreter, VarTable, InferenceState, CFG, NewSSAValue, IRCode,
-    InstructionStream, CallMeta
-using Core.Compiler: get_world_counter, get_inference_cache, may_optimize,
-    isconstType, isconcretetype, widenconst, isdispatchtuple, isinlineable,
-    is_inlineable_constant, copy_exprargs, convert_to_ircode, coverage_enabled, argtypes_to_type,
-    userefs, UseRefIterator, UseRef, MethodResultPure, is_pure_intrinsic_infer, intrinsic_nothrow,
-    quoted, anymap,
+using Core:
+    CodeInfo,
+    SSAValue,
+    Const,
+    PartialStruct,
+    Slot,
+    GotoIfNot,
+    GotoNode,
+    SlotNumber,
+    Argument,
+    ReturnNode
+using Core.Compiler:
+    InferenceParams,
+    InferenceResult,
+    OptimizationParams,
+    OptimizationState,
+    Bottom,
+    AbstractInterpreter,
+    VarTable,
+    InferenceState,
+    CFG,
+    NewSSAValue,
+    IRCode,
+    InstructionStream,
+    CallMeta
+using Core.Compiler:
+    get_world_counter,
+    get_inference_cache,
+    may_optimize,
+    isconstType,
+    isconcretetype,
+    widenconst,
+    isdispatchtuple,
+    isinlineable,
+    is_inlineable_constant,
+    copy_exprargs,
+    convert_to_ircode,
+    coverage_enabled,
+    argtypes_to_type,
+    userefs,
+    UseRefIterator,
+    UseRef,
+    MethodResultPure,
+    is_pure_intrinsic_infer,
+    intrinsic_nothrow,
+    quoted,
+    anymap,
     # Julia passes
     compact!,
     ssa_inlining_pass!,

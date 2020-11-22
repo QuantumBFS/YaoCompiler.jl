@@ -18,7 +18,7 @@ function obtain_const_or_stmt(@nospecialize(x), ci::CodeInfo)
             # TODO: move this to parsing time
             throw(UndefVarError(x.name))
         end
-        
+
         return val, typeof(val)
     else
         # special value
@@ -36,7 +36,7 @@ function obtain_qasm_ifnot_cond(cond::SSAValue, ci::CodeInfo)
     if x isa Int
         creg = cond_stmt.args[3]
     else
-        x= obtain_const(cond_stmt.args[3], ci)
+        x = obtain_const(cond_stmt.args[3], ci)
         if x isa Int
             creg = cond_stmt.args[2]
         else

@@ -134,9 +134,9 @@ macro semantic_stub(ex::Expr)
     end |> esc
 end
 
-@semantic_stub main(gate::Union{Operation, IntrinsicRoutine})
-@semantic_stub ctrl(gate::Union{Operation, IntrinsicRoutine}, loc::Locations, ctrl::CtrlLocations)
-@semantic_stub gate(gate::Union{Operation, IntrinsicRoutine}, loc::Locations)
+@semantic_stub main(gate::Union{Operation,IntrinsicRoutine})
+@semantic_stub ctrl(gate::Union{Operation,IntrinsicRoutine}, loc::Locations, ctrl::CtrlLocations)
+@semantic_stub gate(gate::Union{Operation,IntrinsicRoutine}, loc::Locations)
 # NOTE: other measurement options are just syntax sugars
 # TODO: check in typeinf
 @semantic_stub measure(locs::Locations)

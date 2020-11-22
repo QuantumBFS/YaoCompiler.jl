@@ -295,7 +295,7 @@ function inline_const!(ir::IRCode)
     for i in 1:length(ir.stmts)
         stmt = ir.stmts[i][:inst]
         stmt isa Expr || continue
-        
+
         stmt.args = map(stmt.args) do x
             if x isa SSAValue && !(ssa_const[x.id] === nothing)
                 return quoted(ssa_const[x.id])
@@ -315,14 +315,17 @@ function inline_const!(ir::IRCode)
                 end
             end
 
-            if allconst && isa(f, Core.IntrinsicFunction) && is_pure_intrinsic_infer(f) && intrinsic_nothrow(f, atypes[2:end])
-                fargs = anymap(x::Const->x.val, atypes[2:end])
+            if allconst &&
+               isa(f, Core.IntrinsicFunction) &&
+               is_pure_intrinsic_infer(f) &&
+               intrinsic_nothrow(f, atypes[2:end])
+                fargs = anymap(x::Const -> x.val, atypes[2:end])
                 val = f(fargs...)
                 ir.stmts[i][:inst] = quoted(val)
                 ssa_const[i] = val
             elseif allconst && isa(f, Core.Builtin) && f === Core.tuple
-                fargs = anymap(x::Const->x.val, atypes[2:end])
-                val = (fargs..., )
+                fargs = anymap(x::Const -> x.val, atypes[2:end])
+                val = (fargs...,)
                 ir.stmts[i][:inst] = quoted(val)
                 ssa_const[i] = val
             end
@@ -365,7 +368,7 @@ function elim_map_check!(ir::IRCode)
                         return x
                     end
                 end
-                
+
                 if map_check_nothrow(args[1], args[2])
                     ir.stmts[i][:inst] = nothing
                 end

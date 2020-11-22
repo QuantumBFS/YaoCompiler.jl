@@ -83,14 +83,14 @@ using YaoCompiler.Intrinsics
 @device function qobj_test()
     1 => X
     2 => X
-    @ctrl (1, 2) 3=>X
-    @ctrl 1 2=>X
+    @ctrl (1, 2) 3 => X
+    @ctrl 1 2 => X
     c = @measure 1:3
     return c
 end
 
 
-ci, = @code_yao optimize=true qobj_test()
+ci, = @code_yao optimize = true qobj_test()
 target = YaoCompiler.TargetQobjQASM()
 qobj = YaoCompiler.codegen(target, ci)
 
@@ -106,20 +106,20 @@ qasm"""OPENQASM 2.0;
 include "qelib1.inc";
 """
 
-ci, = @code_yao optimize=true circuit()
-ast = @code_qasm optimize=true passes=:julia gate=true cu3(0.1, 0.2, 0.3)
-ast = @code_qasm optimize=true circuit()
+ci, = @code_yao optimize = true circuit()
+ast = @code_qasm optimize = true passes = :julia gate = true cu3(0.1, 0.2, 0.3)
+ast = @code_qasm optimize = true circuit()
 
 @device function u1(theta)
     1 => Rz(theta)
 end
 
 @device function cu1(lambda)
-    2 => u1(lambda/2)
-    @ctrl 1 2=>X
-    1 => u1(-lambda/2)
-    @ctrl 1 2=>X
-    1 => u1(lambda/2)
+    2 => u1(lambda / 2)
+    @ctrl 1 2 => X
+    1 => u1(-lambda / 2)
+    @ctrl 1 2 => X
+    1 => u1(lambda / 2)
     return
 end
 
@@ -130,13 +130,13 @@ end
 end
 
 target = YaoCompiler.TargetQobjQASM()
-ci, = @code_yao optimize=true circuit()
+ci, = @code_yao optimize = true circuit()
 
 YaoCompiler.codegen(target, ci)
 
-@code_qasm optimize=true circuit()
+@code_qasm optimize = true circuit()
 
-ci, = @code_yao optimize=true circuit()
+ci, = @code_yao optimize = true circuit()
 
 function foo()
     x = Base.div_float(1.0, 2.0)
@@ -160,9 +160,14 @@ result = Core.Compiler.InferenceResult(mi, Any[Core.Const(f), Core.Const(spec), 
 world = Core.Compiler.get_world_counter()
 # interp = Core.Compiler.NativeInterpreter(inf_params=Core.Compiler.InferenceParams(aggressive_constant_propagation=true))
 
-interp = YaoCompiler.YaoInterpreter(Core.Compiler.NativeInterpreter(inf_params=Core.Compiler.InferenceParams(aggressive_constant_propagation=true)), Symbol[])
+interp = YaoCompiler.YaoInterpreter(
+    Core.Compiler.NativeInterpreter(
+        inf_params = Core.Compiler.InferenceParams(aggressive_constant_propagation = true),
+    ),
+    Symbol[],
+)
 # interp = YaoCompiler.YaoInterpreter(;passes=Symbol[])
-frame = Core.Compiler.InferenceState(result, #=cached=# false, interp)
+frame = Core.Compiler.InferenceState(result, false, interp) #=cached=#
 Core.Compiler.typeinf(interp, frame)
 frame.src
 
@@ -172,7 +177,13 @@ nargs = Int(opt.nargs) - 1
 ci = opt.src
 sv = opt
 preserve_coverage = Core.Compiler.coverage_enabled(sv.mod)
-ir = Core.Compiler.convert_to_ircode(ci, Core.Compiler.copy_exprargs(ci.code), preserve_coverage, nargs, sv)
+ir = Core.Compiler.convert_to_ircode(
+    ci,
+    Core.Compiler.copy_exprargs(ci.code),
+    preserve_coverage,
+    nargs,
+    sv,
+)
 ir = Core.Compiler.slot2reg(ir, ci, nargs, sv)
 ir = Core.Compiler.compact!(ir)
 ir = Core.Compiler.compact!(ir)
@@ -189,7 +200,7 @@ YaoCompiler.inline_const!(ir)
 YaoCompiler.elim_mapcheck!(ir)
 YaoCompiler.compact!(ir)
 idx = 1
-todo = Pair{Int, Any}[]
+todo = Pair{Int,Any}[]
 stmt = ir.stmts[1][:inst]
 sig = Core.Compiler.call_sig(ir, stmt)
 calltype = ir.stmts[idx][:type]
@@ -208,13 +219,13 @@ YaoCompiler.optimize(opt, YaoOptimizationParams(interp), result.result)
 opt.src.inferred = true
 
 
-ast = @code_qasm gate=true cu3(0.1, 0.2, 0.3)
-ci, = @code_yao optimize=true cu3(0.1, 0.2, 0.3)
+ast = @code_qasm gate = true cu3(0.1, 0.2, 0.3)
+ci, = @code_yao optimize = true cu3(0.1, 0.2, 0.3)
 
 spec = cu3(0.1, 0.2, 0.3)
 
 @code_yao gate(spec, Locations(1:4))
-@code_yao optimize=true circuit()
+@code_yao optimize = true circuit()
 
 target = YaoCompiler.TargetQobjQASM()
 YaoCompiler.codegen(target, ci)
