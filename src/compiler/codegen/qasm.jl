@@ -50,39 +50,19 @@ qasm_gate_name(::Type{<:Intrinsics.Rz}) = "rz"
 code_qasm(::Type{Intrinsics.XGate}) = QASM.UGate(pi_token, Token{:int}("0"), pi_token, [])
 
 function code_qasm(::Type{Intrinsics.YGate})
-    QASM.UGate(
-        pi_token,
-        half_pi_token,
-        half_pi_token,
-        nothing,
-    )
+    QASM.UGate(pi_token, half_pi_token, half_pi_token, nothing)
 end
 
 function code_qasm(::Type{Intrinsics.ZGate})
-    QASM.UGate(
-        Token{:int}("0"),
-        Token{:int}("0"),
-        pi_token,
-        nothing,
-    )
+    QASM.UGate(Token{:int}("0"), Token{:int}("0"), pi_token, nothing)
 end
 
 function code_qasm(::Type{Intrinsics.HGate})
-    QASM.UGate(
-        half_pi_token,
-        Token{:int}("0"),
-        pi_token,
-        nothing,
-    )
+    QASM.UGate(half_pi_token, Token{:int}("0"), pi_token, nothing)
 end
 
 function code_qasm(::Type{Intrinsics.SGate})
-    QASM.UGate(
-        Token{:int}("0"),
-        Token{:int}("0"),
-        half_pi_token,
-        nothing,
-    )
+    QASM.UGate(Token{:int}("0"), Token{:int}("0"), half_pi_token, nothing)
 end
 
 function code_qasm(::Type{Intrinsics.TGate})
@@ -107,31 +87,16 @@ to_token(x::Integer) = Token{:int}(string(x))
 to_token(x) = x
 
 function code_qasm(::Type{<:Intrinsics.Rx}, vars::Vector{Any})
-    QASM.UGate(
-        to_token(vars[1]),
-        QASM.Negative(half_pi_token),
-        half_pi_token,
-        nothing,
-    )
+    QASM.UGate(to_token(vars[1]), QASM.Negative(half_pi_token), half_pi_token, nothing)
 end
 
 # TODO: check this, U(theta, 0, 0) is Rz?
 function code_qasm(::Type{<:Intrinsics.Ry}, vars::Vector{Any})
-    QASM.UGate(
-        Token{:int}("0"),
-        to_token(vars[1]),
-        Token{:int}("0"),
-        nothing,
-    )
+    QASM.UGate(Token{:int}("0"), to_token(vars[1]), Token{:int}("0"), nothing)
 end
 
 function code_qasm(::Type{<:Intrinsics.Rz}, vars::Vector{Any})
-    QASM.UGate(
-        Token{:int}("0"),
-        Token{:int}("0"),
-        to_token(vars[1]),
-        nothing,
-    )
+    QASM.UGate(Token{:int}("0"), Token{:int}("0"), to_token(vars[1]), nothing)
 end
 
 abstract type TargetQASM end
@@ -339,7 +304,7 @@ function codegen(target::TargetQASMTopLevel, ci::CodeInfo)
         else
             st.pc += 1
         end
-        
+
         isnothing(inst) && continue
         if inst isa Vector
             append!(prog, inst)
@@ -373,9 +338,9 @@ function scan_cargs(ci::CodeInfo)
     spec = ci.parent.specTypes.parameters[2]
 
     # none of the classical parameters are used
-    isnothing(v) && return qasm_gate_name(spec), String[], Dict{Int, String}()
+    isnothing(v) && return qasm_gate_name(spec), String[], Dict{Int,String}()
 
-    tt = Tuple{spec.parameters[1], spec.parameters[2].parameters...}
+    tt = Tuple{spec.parameters[1],spec.parameters[2].parameters...}
     ms = methods(routine_stub, tt)
     length(ms) == 1 || error("ambiguous method call")
     method = first(ms)
@@ -475,7 +440,7 @@ index_qreg(ctrl::CtrlLocations, regmap::RegMap) = index_qreg(ctrl.storage, regma
 function codegen_gate(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
     # NOTE: QASM compatible code should have constant location
     gate, gt, locs = obtain_const_gate_stmt(st.stmt, ci)
-    
+
     gt <: IntrinsicRoutine || gt <: RoutineSpec || error("invalid gate type: $gate::$gt")
 
 
@@ -491,15 +456,19 @@ function codegen_gate(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
             push!(qargs, index_qreg(r, addr, st.regmap))
         end
 
-        return QASM.Instruction(
-            name,
-            cargs, qargs
-        )
+        return QASM.Instruction(name, cargs, qargs)
     end
 end
 
 # TODO: polish duplicated code
-function codegen_intrinsic_gate(target::TargetQASM, @nospecialize(gate), gt, locs::Locations, ci::CodeInfo, st::QASMCodeGenState)
+function codegen_intrinsic_gate(
+    target::TargetQASM,
+    @nospecialize(gate),
+    gt,
+    locs::Locations,
+    ci::CodeInfo,
+    st::QASMCodeGenState,
+)
     # expand the single qubit gates syntax sugar
     # this might be better to be moved to codeinfo
     # pre-processing stage
@@ -518,10 +487,7 @@ function codegen_intrinsic_gate(target::TargetQASM, @nospecialize(gate), gt, loc
             insts = []
             for k in locs.storage
                 r, addr = st.regmap.locs_to_reg_addr[k]
-                push!(insts, QASM.UGate(
-                    inst.z1, inst.y, inst.z2,
-                    index_qreg(r, addr, st.regmap)
-                ))
+                push!(insts, QASM.UGate(inst.z1, inst.y, inst.z2, index_qreg(r, addr, st.regmap)))
             end
             return insts
         else
@@ -530,11 +496,8 @@ function codegen_intrinsic_gate(target::TargetQASM, @nospecialize(gate), gt, loc
                 r, addr = st.regmap.locs_to_reg_addr[k]
                 push!(qargs, index_qreg(r, addr, st.regmap))
             end
-    
-            return QASM.Instruction(
-                inst.name,
-                copy(inst.cargs), qargs
-            )
+
+            return QASM.Instruction(inst.name, copy(inst.cargs), qargs)
         end
     else
         cargs = codegen_cargs(target, ci, gate, st)
@@ -544,10 +507,7 @@ function codegen_intrinsic_gate(target::TargetQASM, @nospecialize(gate), gt, loc
             insts = []
             for k in locs.storage
                 r, addr = st.regmap.locs_to_reg_addr[k]
-                push!(insts, QASM.Instruction(
-                    name,
-                    cargs, Any[index_qreg(r, addr, st.regmap)],
-                ))
+                push!(insts, QASM.Instruction(name, cargs, Any[index_qreg(r, addr, st.regmap)]))
             end
             return insts
         else
@@ -555,10 +515,7 @@ function codegen_intrinsic_gate(target::TargetQASM, @nospecialize(gate), gt, loc
                 r, addr = st.regmap.locs_to_reg_addr[k]
                 push!(qargs, index_qreg(r, addr, st.regmap))
             end
-            return QASM.Instruction(
-                name,
-                cargs, qargs,
-            )
+            return QASM.Instruction(name, cargs, qargs)
         end
     end
 end
