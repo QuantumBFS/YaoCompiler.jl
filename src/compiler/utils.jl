@@ -66,8 +66,8 @@ function gate_count(ci::CodeInfo)
     return count
 end
 
-get_type(x::SSAValue, ci::CodeInfo) = ci.ssavaluetypes[x.id]
-get_type(x::SSAValue, ir::IRCode) = ir.stmts.type[x.id]
+get_type(x::SSAValue, ci::CodeInfo) = widenconst(ci.ssavaluetypes[x.id])
+get_type(x::SSAValue, ir::IRCode) = widenconst(ir.stmts.type[x.id])
 get_type(x::SSAValue, ir::YaoIR) = get_type(x, ir.ir)
 
 eachstmt(ci::CodeInfo) = enumerate(ci.code)
