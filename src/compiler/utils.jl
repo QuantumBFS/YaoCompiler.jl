@@ -109,6 +109,7 @@ function find_minmax_locations(@nospecialize(e), ir)
             end
         end
         return min_loc, max_loc
+        @show println(ir)
     elseif e isa SSAValue && get_type(e, ir) <: AbstractLocations
         return false
     else

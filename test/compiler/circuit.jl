@@ -15,6 +15,20 @@ using Test
     end
 end
 
+
+function YaoCompiler.routine_stub(::typeof(GenericRoutine{:qft}), n::Int)
+    gate(H, 1)
+    for k in 2:n
+        ctrl(shift(2π / 2^k), k, 1)
+    end
+
+    if n > 1
+        ctrl(qft(n - 1), 2:n)
+    end
+end
+
+const qft = GenericRoutine{:qft}
+
 @device function qft4()
     1 => H
     @ctrl 2 1 => shift(π / 2)
@@ -69,6 +83,9 @@ include "qelib1.inc";
     (1, 2, 5) => ccx()
     (1, 3, 5) => ccx()
     (2, 3, 5) => ccx()
+
+    ctrl(X, 1, 4)
+    gate(ccx(), (1, 2, 5))
 end
 
 @testset "YaoLang/#66" begin

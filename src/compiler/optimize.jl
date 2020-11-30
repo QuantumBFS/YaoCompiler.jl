@@ -18,21 +18,10 @@ Base.iterate(p::Core.Compiler.Pair, st) = Core.Compiler.iterate(p, st)
 
 Base.getindex(m::Core.Compiler.MethodLookupResult, idx::Int) = Core.Compiler.getindex(m, idx)
 
-# TODO: we might need a better interface for this when we have more passes
-function run_passes(ci::CodeInfo, nargs::Int, sv::OptimizationState, passes::Vector{Symbol})
-    # NOTE: these parts are copied from Core.Compiler
-    preserve_coverage = coverage_enabled(sv.mod)
-    ir = convert_to_ircode(ci, copy_exprargs(ci.code), preserve_coverage, nargs, sv)
-    ir = slot2reg(ir, ci, nargs, sv)
-
-    ir = compact!(ir)
-    ir = ssa_inlining_pass!(ir, ir.linetable, sv.inlining, ci.propagate_inbounds)
-    ir = compact!(ir)
-    ir = getfield_elim_pass!(ir)
-    ir = adce_pass!(ir)
-    ir = type_lift_pass!(ir)
-    ir = compact!(ir)
-
+function Core.Compiler.optimize(interp::YaoInterpreter, opt::OptimizationState, params::OptimizationParams, @nospecialize(result))
+    nargs = Int(opt.nargs) - 1
+    @timeit "optimizer" ir = Core.Compiler.run_passes(opt.src, nargs, opt)
+    
     # make sure all const are inlined
     # Julia itself may not inline all
     # the const values we want, e.g gates
@@ -45,10 +34,10 @@ function run_passes(ci::CodeInfo, nargs::Int, sv::OptimizationState, passes::Vec
     ir = group_quantum_stmts!(ir)
 
     # run quantum passes
-    if !isempty(passes)
+    if !isempty(interp.passes)
         ir = convert_to_yaoir(ir)
 
-        if :zx in passes
+        if :zx in interp.passes
             ir = run_zx_passes(ir)::YaoIR
         end
 
@@ -56,110 +45,7 @@ function run_passes(ci::CodeInfo, nargs::Int, sv::OptimizationState, passes::Vec
     end
 
     ir = compact!(ir)
-    # insert our own passes after Julia's pass
-    if Core.Compiler.JLOptions().debug_level == 2
-        @timeit "verify 3" (verify_ir(ir); verify_linetable(ir.linetable))
-    end
-    return ir
-end
-
-# NOTE: this is copied from Core.Compiler.optimize to insert our own pass
-# the only difference is this function calls our own run_passes function
-# we need to update this along Julia compiler versions until Keno implements
-# the API for custom optimization passes.
-function optimize(opt::OptimizationState, params::YaoOptimizationParams, @nospecialize(result))
-    def = opt.linfo.def
-    nargs = Int(opt.nargs) - 1
-    ir = run_passes(opt.src, nargs, opt, params.passes)
-    force_noinline = Core.Compiler._any(
-        @nospecialize(x) -> Core.Compiler.isexpr(x, :meta) && x.args[1] === :noinline,
-        ir.meta,
-    )
-
-    # compute inlining and other related optimizations
-    if (isa(result, Const) || isconstType(result))
-        proven_pure = false
-        # must be proven pure to use const_api; otherwise we might skip throwing errors
-        # (issue #20704)
-        # TODO: Improve this analysis; if a function is marked @pure we should really
-        # only care about certain errors (e.g. method errors and type errors).
-        if length(ir.stmts) < 10
-            proven_pure = true
-            for i in 1:length(ir.stmts)
-                node = ir.stmts[i]
-                stmt = node[:inst]
-                if Core.Compiler.stmt_affects_purity(stmt, ir) &&
-                   !Core.Compiler.stmt_effect_free(stmt, node[:type], ir, ir.sptypes)
-                    proven_pure = false
-                    break
-                end
-            end
-            if proven_pure
-                for fl in opt.src.slotflags
-                    if (fl & Core.Compiler.SLOT_USEDUNDEF) != 0
-                        proven_pure = false
-                        break
-                    end
-                end
-            end
-        end
-        if proven_pure
-            opt.src.pure = true
-        end
-
-        if proven_pure
-            # use constant calling convention
-            # Do not emit `jl_fptr_const_return` if coverage is enabled
-            # so that we don't need to add coverage support
-            # to the `jl_call_method_internal` fast path
-            # Still set pure flag to make sure `inference` tests pass
-            # and to possibly enable more optimization in the future
-            if !(isa(result, Const) && !is_inlineable_constant(result.val))
-                opt.const_api = true
-            end
-            force_noinline || (opt.src.inlineable = true)
-        end
-    end
-
-    Core.Compiler.replace_code_newstyle!(opt.src, ir, nargs)
-
-    # determine and cache inlineability
-    union_penalties = false
-    if !force_noinline
-        sig = Core.Compiler.unwrap_unionall(opt.linfo.specTypes)
-        if isa(sig, DataType) && sig.name === Tuple.name
-            for P in sig.parameters
-                P = Core.Compiler.unwrap_unionall(P)
-                if isa(P, Union)
-                    union_penalties = true
-                    break
-                end
-            end
-        else
-            force_noinline = true
-        end
-        if !opt.src.inlineable && result === Union{}
-            force_noinline = true
-        end
-    end
-    if force_noinline
-        opt.src.inlineable = false
-    elseif isa(def, Method)
-        if opt.src.inlineable && isdispatchtuple(opt.linfo.specTypes)
-            # obey @inline declaration if a dispatch barrier would not help
-        else
-            bonus = 0
-            if result ⊑ Tuple && !isconcretetype(widenconst(result))
-                bonus = params.inline_tupleret_bonus
-            end
-            if opt.src.inlineable
-                # For functions declared @inline, increase the cost threshold 20x
-                bonus += params.inline_cost_threshold * 19
-            end
-            opt.src.inlineable = isinlineable(def, opt, params, union_penalties, bonus)
-        end
-    end
-    nothing
+    Core.Compiler.finish(opt, params, ir, result)
 end
 
 function group_quantum_stmts_perm(ir::IRCode)
