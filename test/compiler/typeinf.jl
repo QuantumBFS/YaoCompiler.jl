@@ -9,8 +9,8 @@ gate post q {x q;}
 
 @device function circuit()
     1:3 => ccx()
-    (2, 3) => cx()
-    2 => h()
+    # (2, 3) => cx()
+    # 2 => h()
     # c = @measure 1
     # if c == 1
     #     3 => post()
