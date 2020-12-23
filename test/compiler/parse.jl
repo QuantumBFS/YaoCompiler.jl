@@ -80,70 +80,27 @@ end # TestParse
 using YaoCompiler
 using YaoCompiler.Intrinsics
 
-@device function qobj_test()
-    1 => X
-    2 => X
-    @ctrl (1, 2) 3 => X
-    @ctrl 1 2 => X
-    c = @measure 1:3
-    return c
-end
-
-
-ci, = @code_yao optimize = true qobj_test()
-target = YaoCompiler.TargetQobjQASM()
-qobj = YaoCompiler.codegen(target, ci)
-
-YaoCompiler.measure_ssa_uses!(Set{Int64}(), ci)
-using InteractiveUtils
-clipboard(string(qobj))
-
-qobj["header"]
-qobj["config"]
-qobj["instructions"]
-
 qasm"""OPENQASM 2.0; 
 include "qelib1.inc";
+
+gate post q {x q;}
 """
+
+@device function circuit()
+    1:3 => ccx()
+    (2, 3) => cx()
+    2 => h()
+    # c = @measure 1
+    # if c == 1
+    #     3 => post()
+    # end
+    # 3 => rx(1.0)
+    # return (c=c, )
+end
 
 ci, = @code_yao optimize = true circuit()
 ast = @code_qasm optimize = true passes = :julia gate = true cu3(0.1, 0.2, 0.3)
 ast = @code_qasm optimize = true circuit()
-
-@device function u1(theta)
-    1 => Rz(theta)
-end
-
-@device function cu1(lambda)
-    2 => u1(lambda / 2)
-    @ctrl 1 2 => X
-    1 => u1(-lambda / 2)
-    @ctrl 1 2 => X
-    1 => u1(lambda / 2)
-    return
-end
-
-# this is broken
-@device function circuit()
-    1 => X
-    (3, 5) => cu1(0.1)
-end
-
-target = YaoCompiler.TargetQobjQASM()
-ci, = @code_yao optimize = true circuit()
-
-YaoCompiler.codegen(target, ci)
-
-@code_qasm optimize = true circuit()
-
-ci, = @code_yao optimize = true circuit()
-
-function foo()
-    x = Base.div_float(1.0, 2.0)
-    y = Base.div_float(x, 3.2)
-    return y
-end
-
 
 spec = circuit()
 args = ()
@@ -197,35 +154,37 @@ ir = Core.Compiler.type_lift_pass!(ir)
 ir = Core.Compiler.compact!(ir)
 
 YaoCompiler.inline_const!(ir)
-YaoCompiler.elim_mapcheck!(ir)
+YaoCompiler.elim_map_check!(ir)
 YaoCompiler.compact!(ir)
-idx = 1
-todo = Pair{Int,Any}[]
-stmt = ir.stmts[1][:inst]
-sig = Core.Compiler.call_sig(ir, stmt)
-calltype = ir.stmts[idx][:type]
 
 
-ir = YaoCompiler.group_quantum_stmts!(ir)
-ir = YaoCompiler.propagate_consts_bb!(ir)
-ir = YaoCompiler.compact!(ir)
-
-ir = YaoCompiler.elim_location_mapping!(ir)
-
-
-ir = run_passes(opt.src, nargs, opt, params.passes)
-
-YaoCompiler.optimize(opt, YaoOptimizationParams(interp), result.result)
-opt.src.inferred = true
+# idx = 1
+# todo = Pair{Int,Any}[]
+# stmt = ir.stmts[1][:inst]
+# sig = Core.Compiler.call_sig(ir, stmt)
+# calltype = ir.stmts[idx][:type]
 
 
-ast = @code_qasm gate = true cu3(0.1, 0.2, 0.3)
-ci, = @code_yao optimize = true cu3(0.1, 0.2, 0.3)
+# ir = YaoCompiler.group_quantum_stmts!(ir)
+# ir = YaoCompiler.propagate_consts_bb!(ir)
+# ir = YaoCompiler.compact!(ir)
 
-spec = cu3(0.1, 0.2, 0.3)
+# ir = YaoCompiler.elim_location_mapping!(ir)
 
-@code_yao gate(spec, Locations(1:4))
-@code_yao optimize = true circuit()
 
-target = YaoCompiler.TargetQobjQASM()
-YaoCompiler.codegen(target, ci)
+# ir = run_passes(opt.src, nargs, opt, params.passes)
+
+# YaoCompiler.optimize(opt, YaoOptimizationParams(interp), result.result)
+# opt.src.inferred = true
+
+
+# ast = @code_qasm gate = true cu3(0.1, 0.2, 0.3)
+# ci, = @code_yao optimize = true cu3(0.1, 0.2, 0.3)
+
+# spec = cu3(0.1, 0.2, 0.3)
+
+# @code_yao gate(spec, Locations(1:4))
+# @code_yao optimize = true circuit()
+
+# target = YaoCompiler.TargetQobjQASM()
+# YaoCompiler.codegen(target, ci)

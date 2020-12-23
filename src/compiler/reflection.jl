@@ -80,7 +80,7 @@ function code_yao(f, spec::RoutineSpec, args...; optimize::Bool = false, passes 
     Core.Compiler.typeinf(interp, frame)
     if run_optimizer
         opt = OptimizationState(frame, OptimizationParams(interp), interp)
-        YaoCompiler.optimize(opt, YaoOptimizationParams(interp), result.result)
+        Core.Compiler.optimize(interp, opt, OptimizationParams(interp), result.result)
         opt.src.inferred = true
     end
     ccall(:jl_typeinf_end, Cvoid, ())
