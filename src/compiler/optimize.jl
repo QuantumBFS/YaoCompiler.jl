@@ -26,9 +26,9 @@ function Core.Compiler.optimize(interp::YaoInterpreter, opt::OptimizationState, 
     # Julia itself may not inline all
     # the const values we want, e.g gates
     ir = inline_const!(ir)
-    ir = compact!(ir)
+    ir = compact!(ir, true) # Simplify CFG
     ir = elim_map_check!(ir)
-    ir = compact!(ir, false) # TODO: Cleanup CFG here
+    ir = compact!(ir)
     # group quantum statements so we can work on
     # larger quantum circuits before we start optimizations
     ir = group_quantum_stmts!(ir)
