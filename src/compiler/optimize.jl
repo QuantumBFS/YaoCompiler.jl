@@ -30,18 +30,18 @@ function Core.Compiler.optimize(interp::YaoInterpreter, opt::OptimizationState, 
     ir = compact!(ir, true) # Simplify CFG
     # group quantum statements so we can work on
     # larger quantum circuits before we start optimizations
-    ir = group_quantum_stmts!(ir)
+    # ir = group_quantum_stmts!(ir)
 
-    # run quantum passes
-    if !isempty(interp.passes)
-        ir = convert_to_yaoir(ir)
+    # # run quantum passes
+    # if !isempty(interp.passes)
+    #     ir = convert_to_yaoir(ir)
 
-        if :zx in interp.passes
-            ir = run_zx_passes(ir)::YaoIR
-        end
+    #     if :zx in interp.passes
+    #         ir = run_zx_passes(ir)::YaoIR
+    #     end
 
-        ir = ir.ir
-    end
+    #     ir = ir.ir
+    # end
 
     ir = compact!(ir)
     Core.Compiler.finish(opt, params, ir, result)
