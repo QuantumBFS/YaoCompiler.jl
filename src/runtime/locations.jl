@@ -132,7 +132,7 @@ end
     all(x -> (1 <= x <= length(parent)), sub.storage)
 end
 
-function map_check_throw(parent::Locations{UnitRange{Int}}, sub::Locations{UnitRange{Int}})
+function map_check_nothrow(parent::Locations{UnitRange{Int}}, sub::Locations{UnitRange{Int}})
     (1 <= sub.storage.start) && (sub.storage.stop <= length(parent))
 end
 
