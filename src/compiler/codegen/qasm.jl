@@ -666,13 +666,13 @@ function codegen_ctrl(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
 end
 
 function codegen_measure(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
-    if st.stmt.head === :(=)
+    if st.stmt.head === :(=) # emit from untyped CodeInfo
         slot = st.stmt.args[1]::SlotNumber
         measure_ex = st.stmt.args[2]
         locs = obtain_const(measure_ex.args[2], ci)::Locations
         cname, _ = st.regmap.cbits[slot]
-    else
-        locs = obtain_const(st.stmt.args[2], ci)::Locations
+    else # emit from typed CodeInfo (invoke measure)
+        locs = obtain_const(st.stmt.args[3], ci)::Locations
         cname, _ = st.regmap.cbits[st.pc]
     end
 

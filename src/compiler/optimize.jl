@@ -26,23 +26,22 @@ function Core.Compiler.optimize(interp::YaoInterpreter, opt::OptimizationState, 
     # Julia itself may not inline all
     # the const values we want, e.g gates
     ir = inline_const!(ir)
-    ir = compact!(ir)
     ir = elim_map_check!(ir)
-    ir = compact!(ir)
+    ir = compact!(ir, true) # Simplify CFG
     # group quantum statements so we can work on
     # larger quantum circuits before we start optimizations
-    ir = group_quantum_stmts!(ir)
+    # ir = group_quantum_stmts!(ir)
 
-    # run quantum passes
-    if !isempty(interp.passes)
-        ir = convert_to_yaoir(ir)
+    # # run quantum passes
+    # if !isempty(interp.passes)
+    #     ir = convert_to_yaoir(ir)
 
-        if :zx in interp.passes
-            ir = run_zx_passes(ir)::YaoIR
-        end
+    #     if :zx in interp.passes
+    #         ir = run_zx_passes(ir)::YaoIR
+    #     end
 
-        ir = ir.ir
-    end
+    #     ir = ir.ir
+    # end
 
     ir = compact!(ir)
     Core.Compiler.finish(opt, params, ir, result)
@@ -163,32 +162,32 @@ end
 # inside basic blocks to get better format of
 # the quantum statements
 
-# foce inline all constants
-function is_arg_allconst(args)
-    for arg in args
-        if arg isa SSAValue || arg isa Argument
-            return false
-        elseif !is_inlineable_constant(arg) && !isa(arg, QuoteNode)
-            return false
-        end
+# force inline all constants
+function is_arg_allconst(ir, arg)
+    if arg isa Argument
+        return false
+    elseif arg isa SSAValue
+        return is_arg_allconst(ir, ir.stmts[arg.id][:inst])
+    elseif !is_inlineable_constant(arg) && !isa(arg, QuoteNode)
+        return false
     end
     return true
 end
 
-function inline_const!(ir::IRCode)
-    ssa_const = Any[nothing for _ in 1:length(ir.stmts)]
+function unwrap_arg(ir, arg)
+    if arg isa QuoteNode
+        return arg.value
+    elseif arg isa SSAValue
+        return unwrap_arg(ir, ir.stmts[arg.id][:inst])
+    else
+        return arg
+    end
+end
 
+function inline_const!(ir::IRCode)
     for i in 1:length(ir.stmts)
         stmt = ir.stmts[i][:inst]
         stmt isa Expr || continue
-
-        stmt.args = map(stmt.args) do x
-            if x isa SSAValue && !(ssa_const[x.id] === nothing)
-                return quoted(ssa_const[x.id])
-            else
-                return x
-            end
-        end
 
         if stmt.head === :call
             sig = Core.Compiler.call_sig(ir, stmt)
@@ -205,32 +204,28 @@ function inline_const!(ir::IRCode)
                isa(f, Core.IntrinsicFunction) &&
                is_pure_intrinsic_infer(f) &&
                intrinsic_nothrow(f, atypes[2:end])
+
                 fargs = anymap(x::Const -> x.val, atypes[2:end])
                 val = f(fargs...)
                 ir.stmts[i][:inst] = quoted(val)
-                ssa_const[i] = val
-            elseif allconst && isa(f, Core.Builtin) && f === Core.tuple
+                ir.stmts[i][:type] = Const(val)
+            elseif allconst && isa(f, Core.Builtin) && 
+                   (f === Core.tuple || f === Core.getfield)
                 fargs = anymap(x::Const -> x.val, atypes[2:end])
-                val = (fargs...,)
+                val = f(fargs...)
                 ir.stmts[i][:inst] = quoted(val)
-                ssa_const[i] = val
+                ir.stmts[i][:type] = Const(val)
             end
         elseif stmt.head === :new
             exargs = stmt.args[2:end]
-            allconst = is_arg_allconst(exargs)
+            allconst = all(arg->is_arg_allconst(ir, arg), exargs)
             t = stmt.args[1]
             if allconst && isconcretetype(t) && !t.mutable
-                args = anymap(exargs) do x
-                    if x isa QuoteNode
-                        return x.value
-                    else
-                        return x
-                    end
-                end
+                args = anymap(arg->unwrap_arg(ir, arg), exargs)
                 val = ccall(:jl_new_structv, Any, (Any, Ptr{Cvoid}, UInt32), t, args, length(args))
 
                 ir.stmts[i][:inst] = quoted(val)
-                ssa_const[i] = val
+                ir.stmts[i][:type] = Const(val)
             end
         end
     end
@@ -244,20 +239,15 @@ function elim_map_check!(ir::IRCode)
 
         if stmt.head === :invoke && stmt.args[2] === GlobalRef(YaoCompiler, :map_check)
             exargs = stmt.args[3:end]
-            allconst = is_arg_allconst(exargs)
+            allconst = all(arg->is_arg_allconst(ir, arg), exargs)
+
 
             if allconst
-                args = anymap(exargs) do x
-                    if x isa QuoteNode
-                        return x.value
-                    else
-                        return x
-                    end
-                end
+                args = anymap(arg->unwrap_arg(ir, arg), exargs)
+                val = map_check_nothrow(args[1], args[2])
 
-                if map_check_nothrow(args[1], args[2])
-                    ir.stmts[i][:inst] = nothing
-                end
+                ir.stmts[i][:inst] = quoted(val)
+                ir.stmts[i][:type] = Const(val)
             end
         end
     end

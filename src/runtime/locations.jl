@@ -116,15 +116,27 @@ function map_check_nothrow(parent::Locations{NTuple{N,Int}}, sub::Locations{Unit
     (1 <= sub.storage.start) && (sub.storage.stop <= N)
 end
 
-function map_check(parent::Locations{UnitRange{Int}}, sub::Locations{Int})
+function map_check_nothrow(parent::Locations{UnitRange{Int}}, sub::Locations{Int})
     1 <= sub.storage <= length(parent)
 end
 
-function map_check(parent::Locations{UnitRange{Int}}, sub::Locations{NTuple{N,Int}}) where {N}
+@noinline function map_check(parent::Locations{UnitRange{Int}}, sub::Locations{Int})
+    1 <= sub.storage <= length(parent)
+end
+
+function map_check_nothrow(parent::Locations{UnitRange{Int}}, sub::Locations{NTuple{N,Int}}) where {N}
     all(x -> (1 <= x <= length(parent)), sub.storage)
 end
 
-function map_check(parent::Locations{UnitRange{Int}}, sub::Locations{UnitRange{Int}})
+@noinline function map_check(parent::Locations{UnitRange{Int}}, sub::Locations{NTuple{N,Int}}) where {N}
+    all(x -> (1 <= x <= length(parent)), sub.storage)
+end
+
+function map_check_nothrow(parent::Locations{UnitRange{Int}}, sub::Locations{UnitRange{Int}})
+    (1 <= sub.storage.start) && (sub.storage.stop <= length(parent))
+end
+
+@noinline function map_check(parent::Locations{UnitRange{Int}}, sub::Locations{UnitRange{Int}})
     (1 <= sub.storage.start) && (sub.storage.stop <= length(parent))
 end
 

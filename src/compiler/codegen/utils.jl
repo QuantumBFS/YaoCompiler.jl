@@ -101,6 +101,8 @@ function move_to_first_quantum_stmt(ci::CodeInfo, st)
         stmt′ = ci.code[pc′]
         if stmt′ isa Expr
             is_quantum_statement(stmt′) && break
+        elseif stmt′ isa Core.GotoNode
+            pc′ = (stmt′::Core.GotoNode).label
         else
             # NOTE:
             # we can allow some constant statements
