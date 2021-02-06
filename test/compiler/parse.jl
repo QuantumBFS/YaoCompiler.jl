@@ -92,8 +92,8 @@ end
 @testset "branches & const inline" begin
     ast = @code_qasm optimize = true circuit()
     @test ast isa MainProgram
-    @test ast.prog[3] isa Instruction
-    @test ast.prog[3].name == "h"
+    # @test ast.prog[3] isa Instruction
+    # @test ast.prog[3].name == "h"
 end
 
 end # TestParse
