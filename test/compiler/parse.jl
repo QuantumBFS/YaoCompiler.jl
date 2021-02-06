@@ -90,7 +90,9 @@ end
 end
 
 @testset "branches & const inline" begin
-    ast = @code_qasm optimize = true circuit()
+    ci, = @code_yao optimize = true circuit()
+    display(ci)
+    # ast = @code_qasm optimize = true circuit()
 end
 
 end # TestParse
