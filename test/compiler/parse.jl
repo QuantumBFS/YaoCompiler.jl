@@ -9,6 +9,8 @@ using RBNF: Token
 
 qasm"""OPENQASM 2.0; 
 include "qelib1.inc";
+
+gate post q {x q;}
 """
 
 @testset "qasm gate codegen" begin
@@ -75,12 +77,6 @@ end
     @test ast.body[6].cargs[1].str == "0"
 end
 
-qasm"""OPENQASM 2.0; 
-include "qelib1.inc";
-
-gate post q {x q;}
-"""
-
 @device function circuit()
     1:3 => ccx()
     (2, 3) => cx()
@@ -93,7 +89,8 @@ gate post q {x q;}
     return (c=c, )
 end
 
-ast = @code_qasm optimize = true circuit()
-
+@testset "branches & const inline" begin
+    ast = @code_qasm optimize = true circuit()
+end
 
 end # TestParse
