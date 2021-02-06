@@ -1,7 +1,7 @@
 # YaoCompiler
 
 [![CI](https://github.com/QuantumBFS/YaoCompiler.jl/workflows/CI/badge.svg)](https://github.com/QuantumBFS/YaoCompiler.jl/actions?query=workflow%3ACI)
-[![Coveralls](https://coveralls.io/repos/github/QuantumBFS/YaoCompiler.jl/badge.svg?branch=master)](https://coveralls.io/github/QuantumBFS/YaoCompiler.jl?branch=master)
+[![codecov](https://codecov.io/gh/QuantumBFS/YaoCompiler.jl/branch/master/graph/badge.svg?token=860QUS8QWS)](https://codecov.io/gh/QuantumBFS/YaoCompiler.jl)
 
 The next DSL for Yao and quantum programs.
 
