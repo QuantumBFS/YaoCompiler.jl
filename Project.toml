@@ -17,6 +17,7 @@ YaoLocations = "66df03fb-d475-48f7-b449-3d9064bf085b"
 ZXCalculus = "3525faa3-032d-4235-a8d4-8c2939a218dd"
 
 [compat]
+BitBasis = "0.7"
 ExprTools = "0.1"
 LuxurySparse = "0.6"
 TimerOutputs = "0.5"
