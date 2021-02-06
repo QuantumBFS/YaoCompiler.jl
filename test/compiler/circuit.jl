@@ -1,5 +1,6 @@
 module TestMacros
 
+using YaoLocations
 using YaoCompiler
 using YaoCompiler.Intrinsics
 using Test
