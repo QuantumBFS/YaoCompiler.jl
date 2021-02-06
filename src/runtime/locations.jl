@@ -128,7 +128,10 @@ function map_check_nothrow(parent::Locations{UnitRange{Int}}, sub::Locations{NTu
     all(x -> (1 <= x <= length(parent)), sub.storage)
 end
 
-@noinline function map_check(parent::Locations{UnitRange{Int}}, sub::Locations{NTuple{N,Int}}) where {N}
+@noinline function map_check(
+    parent::Locations{UnitRange{Int}},
+    sub::Locations{NTuple{N,Int}},
+) where {N}
     all(x -> (1 <= x <= length(parent)), sub.storage)
 end
 
