@@ -7,4 +7,5 @@
 /dev/
 
 /docs/build/
+!/docs/Manifest.toml
 Manifest.toml
