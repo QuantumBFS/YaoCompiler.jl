@@ -13,6 +13,7 @@ OpenQASM = "a8821629-a4c0-4df7-9e00-12969ff383a7"
 RBNF = "83ef0002-5b9e-11e9-219b-65bac3c6d69c"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 YaoAPI = "0843a435-28de-4971-9e8b-a9641b2983a8"
+YaoLocations = "66df03fb-d475-48f7-b449-3d9064bf085b"
 ZXCalculus = "3525faa3-032d-4235-a8d4-8c2939a218dd"
 
 [compat]

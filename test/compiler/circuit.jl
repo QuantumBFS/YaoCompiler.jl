@@ -27,8 +27,6 @@ function YaoCompiler.routine_stub(::typeof(GenericRoutine{:qft}), n::Int)
     end
 end
 
-const qft = GenericRoutine{:qft}
-
 @device function qft4()
     1 => H
     @ctrl 2 1 => shift(π / 2)

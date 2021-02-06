@@ -2,7 +2,7 @@ module TestUtils
 
 using Test
 using YaoCompiler
-using YaoCompiler.Gate
+using YaoCompiler.Intrinsics
 
 @device function demo_circ_simp()
     1 => shift(7π / 4)
@@ -31,13 +31,10 @@ using YaoCompiler.Gate
     @ctrl 2 3 => X
 end
 
-
-YaoCompiler.gate_count(demo_circ_simp())
-
 @testset "gate_count" begin
     @test gate_count(demo_circ_simp()) == Dict(
         :ctrl => IdDict(Z => 1, X => 4),
-        :gate => IdDict(T => 2, H => 8, Rx => 1, X => 2, S => 4, shift => 2),
+        :gate => IdDict(T => 2, H => 8, Rx(π / 4) => 1, X => 2, S => 4, shift(7π/4) => 1, shift(3π/2)=>1),
     )
 end
 
