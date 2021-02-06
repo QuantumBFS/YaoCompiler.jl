@@ -35,7 +35,8 @@ mutable struct CodeGenQobjState
 end
 
 function allocate_qobj_qubits!(qubits, locs::Locations, curr::Ref{Int})
-    for k in locs.storage
+    for loc in locs
+        k = plain(loc)
         if !haskey(qubits, k)
             qubits[k] = curr[]
             curr[] += 1
@@ -235,7 +236,8 @@ function codegen_gate(::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
         return Any[qobj]
     else
         qobjs = Any[]
-        for l in locs.storage
+        for loc in locs
+            l = plain(loc)
             obj = copy(qobj)
             obj["qubits"] = get_qubit_addrs(l, st)
             push!(qobjs, obj)

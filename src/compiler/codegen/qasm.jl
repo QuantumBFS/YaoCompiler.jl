@@ -236,23 +236,24 @@ function allocate_new_qreg!(locs_to_regs, locs)
         raw = locs.storage
         get!(locs_to_regs, raw, 1)
     else
-        k_reg = maximum(get(locs_to_regs, each, 1) for each in locs) + 1
+        k_reg = maximum(get(locs_to_regs, plain(each), 1) for each in locs) + 1
 
-        for each in locs
-            locs_to_regs[each] = k_reg
+        for loc in locs
+            locs_to_regs[plain(loc)] = k_reg
         end
     end
 end
 
 function record_locations!(::TargetQASMTopLevel, locs_to_regs::Dict{Int,Int}, locs::Locations)
-    for each in locs
-        get!(locs_to_regs, each, 1)
+    for loc in locs
+        get!(locs_to_regs, plain(loc), 1)
     end
     return locs_to_regs
 end
 
 function record_locations!(::TargetQASMGate, locs_to_regs::Dict{Int,Int}, locs::Locations)
-    for each in locs
+    for loc in locs
+        each = plain(loc)
         if !haskey(locs_to_regs, each)
             locs_to_regs[each] = length(keys(locs_to_regs)) + 1
         end
@@ -451,7 +452,8 @@ function codegen_gate(target::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
         cargs = codegen_cargs(target, ci, gate, st)
         qargs = Any[]
 
-        for k in locs.storage
+        for loc in locs
+            k = plain(loc)
             r, addr = st.regmap.locs_to_reg_addr[k]
             push!(qargs, index_qreg(r, addr, st.regmap))
         end
@@ -485,14 +487,16 @@ function codegen_intrinsic_gate(
         if is_one_qubit_gate(gt)
             inst = inst::QASM.UGate
             insts = []
-            for k in locs.storage
+            for loc in locs
+                k = plain(loc)
                 r, addr = st.regmap.locs_to_reg_addr[k]
                 push!(insts, QASM.UGate(inst.z1, inst.y, inst.z2, index_qreg(r, addr, st.regmap)))
             end
             return insts
         else
             inst = inst::QASM.Instruction
-            for k in locs.storage
+            for loc in locs
+                k = plain(loc)
                 r, addr = st.regmap.locs_to_reg_addr[k]
                 push!(qargs, index_qreg(r, addr, st.regmap))
             end
@@ -505,13 +509,15 @@ function codegen_intrinsic_gate(
 
         if is_one_qubit_gate(gt)
             insts = []
-            for k in locs.storage
+            for loc in locs
+                k = plain(loc)
                 r, addr = st.regmap.locs_to_reg_addr[k]
                 push!(insts, QASM.Instruction(name, cargs, Any[index_qreg(r, addr, st.regmap)]))
             end
             return insts
         else
-            for k in locs.storage
+            for loc in locs
+                k = plain(loc)
                 r, addr = st.regmap.locs_to_reg_addr[k]
                 push!(qargs, index_qreg(r, addr, st.regmap))
             end
@@ -676,7 +682,7 @@ function codegen_measure(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
         cname, _ = st.regmap.cbits[st.pc]
     end
 
-    r, addr = st.regmap.locs_to_reg_addr[first(locs)]
+    r, addr = st.regmap.locs_to_reg_addr[plain(first(locs))]
 
     if length(locs) == 1
         qarg = index_qreg(r, addr, st.regmap)
@@ -694,8 +700,8 @@ function codegen_barrier(::TargetQASM, ci::CodeInfo, st::QASMCodeGenState)
     qargs = Any[]
     args = Dict{Int,Vector{Int}}()
 
-    for each in locs
-        r, addr = st.regmap.locs_to_reg_addr[each]
+    for loc in locs
+        r, addr = st.regmap.locs_to_reg_addr[plain(loc)]
         addrs = get!(args, r, Int[])
         push!(addrs, addr)
     end

@@ -237,7 +237,7 @@ function elim_map_check!(ir::IRCode)
         stmt = ir.stmts[i][:inst]
         stmt isa Expr || continue
 
-        if stmt.head === :invoke && stmt.args[2] === GlobalRef(YaoCompiler, :map_check)
+        if stmt.head === :invoke && stmt.args[2] === GlobalRef(YaoLocations, :map_check)
             exargs = stmt.args[3:end]
             allconst = all(arg->is_arg_allconst(ir, arg), exargs)
 
@@ -436,7 +436,8 @@ function zx_push_gate!(qc::QCircuit, gate::IntrinsicRoutine, locs::Locations)
 
     # NOTE: locs can be UnitRange etc. for instruction
     # remember to expand it
-    for each in locs
+    for loc in locs
+        each = plain(loc)
         if name in (:H, :X, :Z, :S, :Sdag, :T, :Tdag)
             push_gate!(qc, QGate(name, each))
         elseif name === :Y
@@ -459,7 +460,8 @@ function zx_push_gate!(qc::QCircuit, gate::IntrinsicRoutine, locs::Locations, ct
     name = routine_name(gate)
     ctrl = ctrl.storage.storage
 
-    for each in locs
+    for loc in locs
+        each = plain(loc)
         if name === :Z
             push_gate!(qc, QGate(:CZ, each; ctrl = ctrl))
         elseif name === :X

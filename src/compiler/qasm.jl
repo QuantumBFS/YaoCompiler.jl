@@ -4,6 +4,7 @@ export @qasm_str
 
 using RBNF
 using ExprTools
+using YaoLocations
 using OpenQASM
 using OpenQASM.Types
 using OpenQASM.Types: Gate

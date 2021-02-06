@@ -8,8 +8,6 @@ export Intrinsics
 
 using LinearAlgebra
 
-include("runtime/locations.jl")
-
 using TimerOutputs
 const to = TimerOutput()
 timings() = (TimerOutputs.print_timer(to); println())
@@ -20,6 +18,9 @@ using MLStyle
 using YaoAPI
 using BitBasis
 using ZXCalculus
+using YaoLocations
+using YaoLocations: map_check, map_check_nothrow, map_error, plain
+# include("runtime/locations.jl")
 
 using Core:
     CodeInfo,

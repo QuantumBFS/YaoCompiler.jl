@@ -48,17 +48,8 @@ function gate_count(ci::CodeInfo)
 
         if qt === :gate || qt === :ctrl
             gc = get!(count, qt, IdDict{Any,Int}())
-            if stmt.head === :invoke
-                gate, gt = obtain_gate_stmt(stmt.args[3], ci)
-            elseif stmt.head === :call
-                gate, gt = obtain_gate_stmt(stmt.args[2], ci)
-            end
-
-            if gate isa IntrinsicRoutine && isempty(gate.variables)
-                gc[gate] = get(gc, gate, 0) + 1
-            else
-                gc[parent(gate)] = get(gc, parent(gate), 0) + 1
-            end
+            gate, gt = obtain_const_gate_stmt(stmt, ci)
+            gc[gate] = get(gc, gate, 0) + 1
         else
             count[qt] = get(count, qt, 0) + 1
         end
