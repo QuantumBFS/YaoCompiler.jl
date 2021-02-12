@@ -311,7 +311,9 @@ function codegen_ifnot(::TargetQobjQASM, ci::CodeInfo, st::CodeGenQobjState)
             error("classical post processing measurement result in Qobj is not supported")
         condition = st.register_map[creg.id]
     else
-        error("invalid value for measurement result: $creg, possible fix: run :julia optimization pass before codegen")
+        error(
+            "invalid value for measurement result: $creg, possible fix: run :julia optimization pass before codegen",
+        )
     end
 
     length(condition) == 1 || error("Qobj only allows single bit condition for if statement")

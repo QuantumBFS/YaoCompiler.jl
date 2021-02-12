@@ -18,10 +18,15 @@ Base.iterate(p::Core.Compiler.Pair, st) = Core.Compiler.iterate(p, st)
 
 Base.getindex(m::Core.Compiler.MethodLookupResult, idx::Int) = Core.Compiler.getindex(m, idx)
 
-function Core.Compiler.optimize(interp::YaoInterpreter, opt::OptimizationState, params::OptimizationParams, @nospecialize(result))
+function Core.Compiler.optimize(
+    interp::YaoInterpreter,
+    opt::OptimizationState,
+    params::OptimizationParams,
+    @nospecialize(result)
+)
     nargs = Int(opt.nargs) - 1
     @timeit "optimizer" ir = Core.Compiler.run_passes(opt.src, nargs, opt)
-    
+
     # make sure all const are inlined
     # Julia itself may not inline all
     # the const values we want, e.g gates
@@ -204,18 +209,17 @@ function inline_const!(ir::IRCode)
                         break
                     end
                 end
-    
+
                 if allconst &&
                    isa(f, Core.IntrinsicFunction) &&
                    is_pure_intrinsic_infer(f) &&
                    intrinsic_nothrow(f, atypes[2:end])
-    
+
                     fargs = anymap(x::Const -> x.val, atypes[2:end])
                     val = f(fargs...)
                     ir.stmts[i][:inst] = quoted(val)
                     ir.stmts[i][:type] = Const(val)
-                elseif allconst && isa(f, Core.Builtin) && 
-                       (f === Core.tuple || f === Core.getfield)
+                elseif allconst && isa(f, Core.Builtin) && (f === Core.tuple || f === Core.getfield)
                     fargs = anymap(x::Const -> x.val, atypes[2:end])
                     val = f(fargs...)
                     ir.stmts[i][:inst] = quoted(val)
@@ -223,12 +227,13 @@ function inline_const!(ir::IRCode)
                 end
             elseif stmt.head === :new
                 exargs = stmt.args[2:end]
-                allconst = all(arg->is_arg_allconst(ir, arg), exargs)
+                allconst = all(arg -> is_arg_allconst(ir, arg), exargs)
                 t = stmt.args[1]
                 if allconst && isconcretetype(t) && !t.mutable
-                    args = anymap(arg->unwrap_arg(ir, arg), exargs)
-                    val = ccall(:jl_new_structv, Any, (Any, Ptr{Cvoid}, UInt32), t, args, length(args))
-    
+                    args = anymap(arg -> unwrap_arg(ir, arg), exargs)
+                    val =
+                        ccall(:jl_new_structv, Any, (Any, Ptr{Cvoid}, UInt32), t, args, length(args))
+
                     ir.stmts[i][:inst] = quoted(val)
                     ir.stmts[i][:type] = Const(val)
                 end
@@ -245,11 +250,11 @@ function elim_map_check!(ir::IRCode)
 
         if stmt.head === :invoke && stmt.args[2] === GlobalRef(YaoLocations, :map_check)
             exargs = stmt.args[3:end]
-            allconst = all(arg->is_arg_allconst(ir, arg), exargs)
+            allconst = all(arg -> is_arg_allconst(ir, arg), exargs)
 
 
             if allconst
-                args = anymap(arg->unwrap_arg(ir, arg), exargs)
+                args = anymap(arg -> unwrap_arg(ir, arg), exargs)
                 val = map_check_nothrow(args[1], args[2])
 
                 ir.stmts[i][:inst] = quoted(val)

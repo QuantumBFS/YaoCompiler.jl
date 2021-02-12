@@ -86,7 +86,7 @@ end
         3 => post()
     end
     3 => rx(1.0)
-    return (c=c, )
+    return (c = c,)
 end
 
 @testset "branches & const inline" begin
