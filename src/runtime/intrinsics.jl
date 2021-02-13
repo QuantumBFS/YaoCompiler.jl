@@ -109,7 +109,9 @@ function execute(stub::typeof(Semantic.barrier), r::TraceTape, loc::Locations)
 end
 
 function execute(stub::typeof(Semantic.measure), r::TraceTape, locs::Locations)
-    error("one should not trace programs contain @measure, since we cannot purify this hybrid program")
+    error(
+        "one should not trace programs contain @measure, since we cannot purify this hybrid program",
+    )
 end
 
 function trace_m(ex)
