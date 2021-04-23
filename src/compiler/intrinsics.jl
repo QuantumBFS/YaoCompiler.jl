@@ -40,9 +40,23 @@ is_one_qubit_gate(x) = false
 module Intrinsics
 
 using MLStyle
-import YaoCompiler
-using ..YaoCompiler: @intrinsic, IntrinsicRoutine
-export X, Y, Z, H, S, T, shift, Rx, Ry, Rz
+using YaoLocations
+using CompilerPluginTools
+using ..YaoCompiler: YaoCompiler, @intrinsic, IntrinsicRoutine, Routine
+
+export X, Y, Z, H, S, T, shift, Rx, Ry, Rz, main, gate, ctrl, measure, barrier, expect
+
+@intrinsic_stub device main(gate::Routine)
+@intrinsic_stub device ctrl(gate::Routine, loc::Locations, ctrl::CtrlLocations)
+@intrinsic_stub device gate(gate::Routine, loc::Locations)
+# NOTE: other measurement options are just syntax sugars
+# TODO: check in typeinf
+@intrinsic_stub device measure(locs::Locations)
+@intrinsic_stub device barrier(locs::Locations)
+
+# NOTE: this is in principal a for loop + measure
+# but for easy manipulation, let's make it a first-class
+@intrinsic_stub device expect(locs::Locations, nshots::Int)
 
 @intrinsic X
 @intrinsic Y
