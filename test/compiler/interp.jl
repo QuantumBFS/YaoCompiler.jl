@@ -44,3 +44,9 @@ end
     @test ci.code[4].args[5] == QuoteNode(CtrlLocations(4))
     @test ci.code[5] == ReturnNode(2)
 end
+
+# function code_cache(mxi::MixtapeInterpreter)
+#     return WorldView(get_cache(typeof(mxi.inner)), get_world_counter(mxi))
+# end
+
+# Core.Compiler.InferenceState

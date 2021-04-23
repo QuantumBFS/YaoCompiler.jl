@@ -1,25 +1,41 @@
-@option struct ZXOptions
+abstract type YaoCompileTarget <: AbstractCompilerTarget end
+
+@option struct CompileOptions
+    group_quantum_stmts::Bool = true
     phase_teleportation::Bool = false
     clifford_simplification::Bool = false
 end
 
-@option struct CompileOptions
-    group_quantum_stmts::Bool = true
-    zx::Maybe{ZXOptions} = nothing
-end
-
-struct YaoInterpreter <: JuliaLikeInterpreter
-    native_interpreter::NativeInterpreter
+"""
+compile to generic Julia function calls.
+"""
+@option struct JLGenericTarget <: YaoCompileTarget
     options::CompileOptions
 end
 
-YaoInterpreter(options::CompileOptions) = YaoInterpreter(NativeInterpreter(), options)
-YaoInterpreter(; kw...) = YaoInterpreter(NativeInterpreter(); kw...)
-
-function YaoInterpreter(interp::NativeInterpreter; kw...)
-    options = Configurations.from_field_kwargs(CompileOptions; kw...)
-    return YaoInterpreter(interp, options)
+"""
+compile to basic quantum circuit simulation routines.
+"""
+@option struct JLEmulationTarget <: YaoCompileTarget
+    options::CompileOptions
 end
+
+@option struct OpenQASM2Target <: YaoCompileTarget
+    options::CompileOptions
+end
+
+@option struct IBMQobjTarget <: YaoCompileTarget
+    options::CompileOptions
+    inline_qelib::Bool=false
+end
+
+struct YaoInterpreter{Target <: YaoCompileTarget} <: JuliaLikeInterpreter
+    native_interpreter::NativeInterpreter
+    target::Target
+end
+
+YaoInterpreter() = YaoInterpreter(JLEmulationTarget())
+YaoInterpreter(target) = YaoInterpreter(NativeInterpreter(), target)
 
 function Core.Compiler.abstract_call(
         interp::YaoInterpreter,
@@ -124,16 +140,22 @@ function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
     # larger quantum circuits before we start optimizations
     ir = Core.Compiler.cfg_simplify!(ir)
 
-    if interp.options.group_quantum_stmts
+    if interp.target.options.group_quantum_stmts
         ir = group_quantum_stmts!(ir)
     end
 
-    # if !isnothing(interp.options.zx)
-    # end
+    if interp.target.options.phase_teleportation
+    end
 
+    if interp.target.options.clifford_simplification
+    end
+
+    ir = target_specific_optimization(interp.target, ir)
     ir = compact!(ir)
     return ir
 end
+
+target_specific_optimization(::YaoCompileTarget, ir::IRCode) = ir
 
 function group_quantum_stmts!(ir::IRCode)
     perm = group_quantum_stmts_perm(ir)
