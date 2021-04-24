@@ -18,9 +18,9 @@ end
 
 @testset "nested routine const prop" begin
     op = main_circuit()
-    interp = YaoInterpreter(;group_quantum_stmts=true)
+    interp = YaoInterpreter()
     ci, type = code_typed(Intrinsics.main, (typeof(op), ); interp)[1]
-
+    println(ci)
     @test ci.code[1].head === :invoke
     @test ci.code[1].args[2] == GlobalRef(Intrinsics, :gate)
     @test ci.code[1].args[3] == QuoteNode(X)

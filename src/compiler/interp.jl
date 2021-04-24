@@ -10,22 +10,22 @@ end
 compile to generic Julia function calls.
 """
 @option struct JLGenericTarget <: YaoCompileTarget
-    options::CompileOptions
+    options::CompileOptions = CompileOptions()
 end
 
 """
 compile to basic quantum circuit simulation routines.
 """
 @option struct JLEmulationTarget <: YaoCompileTarget
-    options::CompileOptions
+    options::CompileOptions = CompileOptions()
 end
 
 @option struct OpenQASM2Target <: YaoCompileTarget
-    options::CompileOptions
+    options::CompileOptions = CompileOptions()
 end
 
 @option struct IBMQobjTarget <: YaoCompileTarget
-    options::CompileOptions
+    options::CompileOptions = CompileOptions()
     inline_qelib::Bool=false
 end
 
