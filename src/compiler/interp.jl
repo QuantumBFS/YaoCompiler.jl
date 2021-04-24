@@ -34,7 +34,7 @@ struct YaoInterpreter{Target <: YaoCompileTarget} <: JuliaLikeInterpreter
     target::Target
 end
 
-YaoInterpreter() = YaoInterpreter(JLEmulationTarget())
+YaoInterpreter() = YaoInterpreter(JLGenericTarget())
 YaoInterpreter(target) = YaoInterpreter(NativeInterpreter(), target)
 
 function Core.Compiler.abstract_call(
