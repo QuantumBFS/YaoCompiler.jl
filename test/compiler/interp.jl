@@ -7,14 +7,17 @@ using CompilerPluginTools
 
 @device function circuit(theta, phi)
     1 => X
-    @ctrl 1 4 => Rx(theta)
-    @ctrl 2 4 => Ry(phi)
-    ctrl(X, 1, 4)
-    return 2
+    1 => Y # equivalent to @apply 1 => Y
+    @apply 1 4 => Rx(theta)
+    @apply 2 4 => Ry(phi)
+    apply(X, 1, 4)
+    return 2 + im
 end
 
 @device function main_circuit()
-    1:4 => circuit(1.0, 2.0)
+    ret = @apply 1:4 => circuit(1.0, 2.0)
+    apply(Rx(2.0), 1, 2)
+    return ret
 end
 
 @testset "nested routine const prop" begin
@@ -53,11 +56,15 @@ end
 # Core.Compiler.InferenceState
 
 YaoCompiler.GLOBAL_CI_CACHE[YaoCompiler.JLDummyTarget()] = YaoCompiler.GPUCompiler.CodeCache()
-interp = YaoInterpreter(;target=YaoCompiler.JLDummyTarget())
+interp = YaoInterpreter()
 op = main_circuit()
-ci, type = code_typed(Intrinsics.main, (typeof(op), ); interp)[1]
 
+
+ci = @code_lowered Intrinsics.main(op)
+ci, type = code_typed(Intrinsics.main, (typeof(op), ); interp)[1]
+code_ircode(Intrinsics.main, (typeof(op), ); interp)[1]
 mi = method_instances(Intrinsics.main, (typeof(op), ))[1]
+
 fspec = FunctionSpec(Intrinsics.main, Tuple{typeof(op)}, false, nothing) #=name=#
 job = CompilerJob(YaoCompiler.JLDummyTarget(), fspec, YaoCompiler.YaoCompileParams())
 llvm_specfunc, llvm_func, llvm_mod = YaoCompiler.compile_method_instance(job, mi)
@@ -65,3 +72,5 @@ llvm_specfunc, llvm_func, llvm_mod = YaoCompiler.compile_method_instance(job, mi
 f = YaoCompiler.compile(YaoCompiler.JLDummyTarget(), Intrinsics.main, Tuple{typeof(op)})
 
 f(op)
+
+YaoCompiler.routine_stub(main_circuit)
