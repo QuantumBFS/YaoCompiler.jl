@@ -1,41 +1,41 @@
+# we cache different compile target results
+const GLOBAL_CI_CACHE = Dict{Any, GPUCompiler.CodeCache}()
+
 abstract type YaoCompileTarget <: AbstractCompilerTarget end
 
-@option struct CompileOptions
+get_cache(target::YaoCompileTarget) = GLOBAL_CI_CACHE[target]
+
+@option struct JLGenericTarget <: YaoCompileTarget
+end
+
+@option struct JLDummyTarget <: YaoCompileTarget
+end
+
+@option struct JLEmulationTarget <: YaoCompileTarget
+end
+
+@option struct OpenQASMTarget <: YaoCompileTarget
+    version::VersionNumber = v"2.0"
+end
+
+@option struct IBMQobjTarget <: YaoCompileTarget
+    inline_qelib::Bool=false
+end
+
+@option struct YaoInterpreter{Target <: YaoCompileTarget} <: JuliaLikeInterpreter
+    native_interpreter::NativeInterpreter = NativeInterpreter()
+    target::Target = JLGenericTarget()
+    cache::CodeCache = get!(GLOBAL_CI_CACHE, target, GPUCompiler.CodeCache())
     group_quantum_stmts::Bool = true
     phase_teleportation::Bool = false
     clifford_simplification::Bool = false
 end
 
-"""
-compile to generic Julia function calls.
-"""
-@option struct JLGenericTarget <: YaoCompileTarget
-    options::CompileOptions = CompileOptions()
-end
+YaoInterpreter(target;kw...) = YaoInterpreter(NativeInterpreter(), target; kw...)
 
-"""
-compile to basic quantum circuit simulation routines.
-"""
-@option struct JLEmulationTarget <: YaoCompileTarget
-    options::CompileOptions = CompileOptions()
+function Core.Compiler.code_cache(interp::YaoInterpreter)    
+    Core.Compiler.WorldView(get_cache(interp.target), Core.Compiler.get_world_counter(interp))
 end
-
-@option struct OpenQASM2Target <: YaoCompileTarget
-    options::CompileOptions = CompileOptions()
-end
-
-@option struct IBMQobjTarget <: YaoCompileTarget
-    options::CompileOptions = CompileOptions()
-    inline_qelib::Bool=false
-end
-
-struct YaoInterpreter{Target <: YaoCompileTarget} <: JuliaLikeInterpreter
-    native_interpreter::NativeInterpreter
-    target::Target
-end
-
-YaoInterpreter() = YaoInterpreter(JLGenericTarget())
-YaoInterpreter(target) = YaoInterpreter(NativeInterpreter(), target)
 
 function Core.Compiler.abstract_call(
         interp::YaoInterpreter,
@@ -98,9 +98,7 @@ function Core.Compiler.abstract_call(
     elseif f === getindex && allconst
         # getindex(locs, locs)
         la = length(argtypes)
-        a = argtypes[2].val
-        b = argtypes[3].val
-        if la == 3 && a isa AbstractLocations && b isa AbstractLocations
+        if la == 3 && argtypes[2].val isa AbstractLocations && argtypes[3].val isa AbstractLocations
             return CallMeta(Const(f(argtypes[2].val, argtypes[3].val)), MethodResultPure())
         end
     end
@@ -140,14 +138,14 @@ function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
     # larger quantum circuits before we start optimizations
     ir = Core.Compiler.cfg_simplify!(ir)
 
-    if interp.target.options.group_quantum_stmts
+    if interp.group_quantum_stmts
         ir = group_quantum_stmts!(ir)
     end
 
-    if interp.target.options.phase_teleportation
+    if interp.phase_teleportation
     end
 
-    if interp.target.options.clifford_simplification
+    if interp.clifford_simplification
     end
 
     ir = target_specific_optimization(interp.target, ir)
@@ -156,6 +154,29 @@ function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
 end
 
 target_specific_optimization(::YaoCompileTarget, ir::IRCode) = ir
+
+function target_specific_optimization(::JLDummyTarget, ir::IRCode)
+    mi = method_instances(println, (String, ))[1]
+    for i in 1:length(ir.stmts)
+        e = ir.stmts[i][:inst]
+        @switch e begin
+            @case Expr(:invoke, _, GlobalRef(Intrinsics, :measure), args...)
+                ir.stmts[i][:inst] = QuoteNode(5)
+            @case Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), args...)
+                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Base, :println), "Intrinsics.barrier")
+                ir.stmts[i][:type] = Nothing
+            @case Expr(:invoke, _, GlobalRef(Intrinsics, :gate), args...)
+                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Base, :println), "Intrinsics.gate")
+                ir.stmts[i][:type] = Nothing
+            @case Expr(:invoke, _, GlobalRef(Intrinsics, :ctrl), args...)
+                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Base, :println), "Intrinsics.ctrl")
+                ir.stmts[i][:type] = Nothing
+            @case _
+                nothing
+        end
+    end
+    return ir
+end
 
 function group_quantum_stmts!(ir::IRCode)
     perm = group_quantum_stmts_perm(ir)
@@ -171,13 +192,16 @@ function group_quantum_stmts_perm(ir::IRCode)
         for v in b.stmts
             e = ir.stmts[v][:inst]
             @switch e begin
-                @case Expr(:invoke, _, GlobalRef(Intrinsics, :measure), args...)
+                # terminator
+                @case Expr(:invoke, _, GlobalRef(Intrinsics, :measure), args...) ||
+                    Expr(:invoke, _, GlobalRef(Intrinsics, :expect), args...) ||
+                    Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), args...)
+
                     exit_block!(perms, cstmts_tape, qstmts_tape)
                     push!(perms, v)
-                @case Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), args...)
-                    exit_block!(perms, cstmts_tape, qstmts_tape)
-                    push!(perms, v)
-                @case Expr(:invoke, _, GlobalRef(Intrinsics, _), args...)
+                # intrinsic
+                @case Expr(:invoke, _, GlobalRef(Intrinsics, :gate), args...) ||
+                    Expr(:invoke, _, GlobalRef(Intrinsics, :ctrl), args...)
                     push!(qstmts_tape, v)
                 @case ::ReturnNode || ::GotoIfNot || ::GotoNode
                     exit_block!(perms, cstmts_tape, qstmts_tape)

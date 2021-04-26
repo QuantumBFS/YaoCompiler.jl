@@ -32,6 +32,7 @@ using LinearAlgebra
 using GPUCompiler
 using Configurations
 using CompilerPluginTools
+using GPUCompiler: CodeCache, CompilerJob, AbstractCompilerTarget, AbstractCompilerParams
 using YaoLocations: map_check, map_check_nothrow, map_error, plain
 using Base.Meta: ParseError
 
@@ -44,6 +45,8 @@ include("compiler/printing.jl")
 include("compiler/intrinsics.jl")
 include("compiler/syntax.jl")
 include("compiler/interp.jl")
+
+include("codegen/native.jl")
 
 # include("compiler/qasm.jl")
 
