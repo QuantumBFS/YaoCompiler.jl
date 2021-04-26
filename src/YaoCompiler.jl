@@ -36,6 +36,7 @@ using CompilerPluginTools
 using LLVM.Interop
 using GPUCompiler: CodeCache, CompilerJob, AbstractCompilerTarget, AbstractCompilerParams, WorldView
 using YaoLocations: map_check, map_check_nothrow, map_error, plain
+using CompilerPluginTools: Argument
 using Base.Meta: ParseError
 
 const to = TimerOutput()

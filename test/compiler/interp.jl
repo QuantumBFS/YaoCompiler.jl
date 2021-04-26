@@ -73,4 +73,11 @@ f = YaoCompiler.compile(YaoCompiler.JLDummyTarget(), Intrinsics.main, Tuple{type
 
 f(op)
 
-YaoCompiler.routine_stub(main_circuit)
+op = main_circuit()
+interp = YaoInterpreter()
+ci, type = code_ircode(Intrinsics.main, (typeof(op), ); interp)[1]
+
+ir = YaoCompiler.inline_const!(ci)
+ir = const_invoke!(YaoLocations.map_check_nothrow, ir, GlobalRef(YaoLocations, :map_check))
+ir = compact!(ir, true)
+ir = Core.Compiler.cfg_simplify!(ir)

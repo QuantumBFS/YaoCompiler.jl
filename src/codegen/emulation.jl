@@ -1,6 +1,9 @@
 @option struct JLEmulationTarget <: YaoCompileTarget
 end
 
+# function emulate!(r, op::Operation)
+# end
+
 # # NOTE:
 # # emulation always execute the program directly
 # # we will use another entrance for optimized program

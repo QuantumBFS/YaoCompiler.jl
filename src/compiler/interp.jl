@@ -136,12 +136,12 @@ function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
     if interp.options.clifford_simplification
     end
 
-    ir = target_specific_optimization(interp.target, ir)
+    ir = target_specific_pipeline(interp.target, ir)
     ir = compact!(ir)
     return ir
 end
 
-target_specific_optimization(::YaoCompileTarget, ir::IRCode) = ir
+target_specific_pipeline(::YaoCompileTarget, ir::IRCode) = ir
 
 function group_quantum_stmts!(ir::IRCode)
     perm = group_quantum_stmts_perm(ir)
