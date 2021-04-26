@@ -1,34 +1,37 @@
+function method_instance(@nospecialize(f), @nospecialize(tt), world=Base.get_world_counter())
+    # get the method instance
+    meth = which(f, tt)
+    sig = Base.signature_type(f, tt)::Type
+    (ti, env) = ccall(:jl_type_intersection_with_env, Any, (Any, Any), sig,
+        meth.sig)::Core.SimpleVector
+    meth = Base.func_for_method_checked(meth, ti, env)
+    return ccall(:jl_specializations_get_linfo, Ref{Core.MethodInstance},
+        (Any, Any, Any, UInt), meth, ti, env, world)
+end
+
 # we cache different compile target results
 const GLOBAL_CI_CACHE = Dict{Any, GPUCompiler.CodeCache}()
 
+@option struct HardwareFreeOptions
+    group_quantum_stmts::Bool = true
+    phase_teleportation::Bool = false
+    clifford_simplification::Bool = false
+end
+
+@option struct YaoCompileParams <: AbstractCompilerParams
+    options::HardwareFreeOptions = HardwareFreeOptions()
+end
+
 abstract type YaoCompileTarget <: AbstractCompilerTarget end
+@option struct JLGenericTarget <: YaoCompileTarget end
 
 get_cache(target::YaoCompileTarget) = GLOBAL_CI_CACHE[target]
-
-@option struct JLGenericTarget <: YaoCompileTarget
-end
-
-@option struct JLDummyTarget <: YaoCompileTarget
-end
-
-@option struct JLEmulationTarget <: YaoCompileTarget
-end
-
-@option struct OpenQASMTarget <: YaoCompileTarget
-    version::VersionNumber = v"2.0"
-end
-
-@option struct IBMQobjTarget <: YaoCompileTarget
-    inline_qelib::Bool=false
-end
 
 @option struct YaoInterpreter{Target <: YaoCompileTarget} <: JuliaLikeInterpreter
     native_interpreter::NativeInterpreter = NativeInterpreter()
     target::Target = JLGenericTarget()
     cache::CodeCache = get!(GLOBAL_CI_CACHE, target, GPUCompiler.CodeCache())
-    group_quantum_stmts::Bool = true
-    phase_teleportation::Bool = false
-    clifford_simplification::Bool = false
+    options::HardwareFreeOptions = HardwareFreeOptions()
 end
 
 YaoInterpreter(target;kw...) = YaoInterpreter(NativeInterpreter(), target; kw...)
@@ -138,14 +141,14 @@ function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
     # larger quantum circuits before we start optimizations
     ir = Core.Compiler.cfg_simplify!(ir)
 
-    if interp.group_quantum_stmts
+    if interp.options.group_quantum_stmts
         ir = group_quantum_stmts!(ir)
     end
 
-    if interp.phase_teleportation
+    if interp.options.phase_teleportation
     end
 
-    if interp.clifford_simplification
+    if interp.options.clifford_simplification
     end
 
     ir = target_specific_optimization(interp.target, ir)
@@ -154,29 +157,6 @@ function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
 end
 
 target_specific_optimization(::YaoCompileTarget, ir::IRCode) = ir
-
-function target_specific_optimization(::JLDummyTarget, ir::IRCode)
-    mi = method_instances(println, (String, ))[1]
-    for i in 1:length(ir.stmts)
-        e = ir.stmts[i][:inst]
-        @switch e begin
-            @case Expr(:invoke, _, GlobalRef(Intrinsics, :measure), args...)
-                ir.stmts[i][:inst] = QuoteNode(5)
-            @case Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), args...)
-                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Base, :println), "Intrinsics.barrier")
-                ir.stmts[i][:type] = Nothing
-            @case Expr(:invoke, _, GlobalRef(Intrinsics, :gate), args...)
-                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Base, :println), "Intrinsics.gate")
-                ir.stmts[i][:type] = Nothing
-            @case Expr(:invoke, _, GlobalRef(Intrinsics, :ctrl), args...)
-                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Base, :println), "Intrinsics.ctrl")
-                ir.stmts[i][:type] = Nothing
-            @case _
-                nothing
-        end
-    end
-    return ir
-end
 
 function group_quantum_stmts!(ir::IRCode)
     perm = group_quantum_stmts_perm(ir)

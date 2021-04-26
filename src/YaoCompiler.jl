@@ -23,6 +23,7 @@ export YaoInterpreter
 
 using MLStyle
 using YaoAPI
+using LLVM
 using BitBasis
 using Expronicon
 using ZXCalculus
@@ -32,7 +33,8 @@ using LinearAlgebra
 using GPUCompiler
 using Configurations
 using CompilerPluginTools
-using GPUCompiler: CodeCache, CompilerJob, AbstractCompilerTarget, AbstractCompilerParams
+using LLVM.Interop
+using GPUCompiler: CodeCache, CompilerJob, AbstractCompilerTarget, AbstractCompilerParams, WorldView
 using YaoLocations: map_check, map_check_nothrow, map_error, plain
 using Base.Meta: ParseError
 
@@ -46,7 +48,36 @@ include("compiler/intrinsics.jl")
 include("compiler/syntax.jl")
 include("compiler/interp.jl")
 
+include("codegen/llvmopt.jl")
 include("codegen/native.jl")
+include("codegen/dummy.jl")
+include("codegen/emulation.jl")
+include("codegen/qasm2.jl")
+include("codegen/qobj2.jl")
+
+# We have one global JIT and TM
+const orc = Ref{LLVM.OrcJIT}()
+const tm = Ref{LLVM.TargetMachine}()
+
+function __init__()
+    opt_level = Base.JLOptions().opt_level
+    if opt_level < 2
+        optlevel = LLVM.API.LLVMCodeGenLevelNone
+    elseif opt_level == 2
+        optlevel = LLVM.API.LLVMCodeGenLevelDefault
+    else
+        optlevel = LLVM.API.LLVMCodeGenLevelAggressive
+    end
+
+    tm[] = LLVM.JITTargetMachine(; optlevel=optlevel)
+    LLVM.asm_verbosity!(tm[], true)
+
+    orc[] = LLVM.OrcJIT(tm[]) # takes ownership of tm
+    atexit() do
+        return LLVM.dispose(orc[])
+    end
+end
+
 
 # include("compiler/qasm.jl")
 

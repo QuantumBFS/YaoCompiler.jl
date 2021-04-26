@@ -1,6 +1,7 @@
 using Test
 using YaoLocations
 using YaoCompiler
+using GPUCompiler
 using YaoCompiler.Intrinsics
 using CompilerPluginTools
 
@@ -50,3 +51,17 @@ end
 # end
 
 # Core.Compiler.InferenceState
+
+YaoCompiler.GLOBAL_CI_CACHE[YaoCompiler.JLDummyTarget()] = YaoCompiler.GPUCompiler.CodeCache()
+interp = YaoInterpreter(;target=YaoCompiler.JLDummyTarget())
+op = main_circuit()
+ci, type = code_typed(Intrinsics.main, (typeof(op), ); interp)[1]
+
+mi = method_instances(Intrinsics.main, (typeof(op), ))[1]
+fspec = FunctionSpec(Intrinsics.main, Tuple{typeof(op)}, false, nothing) #=name=#
+job = CompilerJob(YaoCompiler.JLDummyTarget(), fspec, YaoCompiler.YaoCompileParams())
+llvm_specfunc, llvm_func, llvm_mod = YaoCompiler.compile_method_instance(job, mi)
+
+f = YaoCompiler.compile(YaoCompiler.JLDummyTarget(), Intrinsics.main, Tuple{typeof(op)})
+
+f(op)
