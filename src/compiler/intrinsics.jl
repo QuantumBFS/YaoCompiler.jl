@@ -44,11 +44,20 @@ using YaoLocations
 using CompilerPluginTools
 using ..YaoCompiler: YaoCompiler, @intrinsic, IntrinsicRoutine, Routine
 
-export X, Y, Z, H, S, T, shift, Rx, Ry, Rz, main, gate, ctrl, measure, barrier, expect
+export X, Y, Z, H, S, T, shift, Rx, Ry, Rz, main, apply, measure, barrier, expect
 
 @intrinsic_stub device main(gate::Routine)
-@intrinsic_stub device ctrl(gate::Routine, loc::Locations, ctrl::CtrlLocations)
-@intrinsic_stub device gate(gate::Routine, loc::Locations)
+
+function apply(gate::Routine, loc::Locations)
+    throw(CompilerPluginTools.IntrinsicError("apply must be executed inside @device"))
+end
+
+function apply(gate::Routine, loc::Locations, ctrl::CtrlLocations)
+    throw(CompilerPluginTools.IntrinsicError("apply must be executed inside @device"))
+end
+
+isintrinsic(::typeof(apply)) = true
+
 # NOTE: other measurement options are just syntax sugars
 # TODO: check in typeinf
 @intrinsic_stub device measure(locs::Locations)

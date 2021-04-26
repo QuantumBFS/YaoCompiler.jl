@@ -1,28 +1,14 @@
-function method_instance(@nospecialize(f), @nospecialize(tt), world=Base.get_world_counter())
-    # get the method instance
-    meth = which(f, tt)
-    sig = Base.signature_type(f, tt)::Type
-    (ti, env) = ccall(:jl_type_intersection_with_env, Any, (Any, Any), sig,
-        meth.sig)::Core.SimpleVector
-    meth = Base.func_for_method_checked(meth, ti, env)
-    return ccall(:jl_specializations_get_linfo, Ref{Core.MethodInstance},
-        (Any, Any, Any, UInt), meth, ti, env, world)
-end
-
 # we cache different compile target results
 const GLOBAL_CI_CACHE = Dict{Any, GPUCompiler.CodeCache}()
 
-@option struct HardwareFreeOptions
+@option struct HardwareFreeOptions <: AbstractCompilerParams
     group_quantum_stmts::Bool = true
     phase_teleportation::Bool = false
     clifford_simplification::Bool = false
 end
 
-@option struct YaoCompileParams <: AbstractCompilerParams
-    options::HardwareFreeOptions = HardwareFreeOptions()
-end
-
 abstract type YaoCompileTarget <: AbstractCompilerTarget end
+
 @option struct JLGenericTarget <: YaoCompileTarget end
 
 get_cache(target::YaoCompileTarget) = GLOBAL_CI_CACHE[target]
@@ -120,14 +106,13 @@ function abstract_call_quantum(
 
     if f === Intrinsics.measure
         return Core.Compiler.CallMeta(Int, MethodResultPure())
-    elseif f === Intrinsics.gate || f === Intrinsics.ctrl
+    elseif f === Intrinsics.apply # || f === Intrinsics.ctrl
         gt = widenconst(argtypes[2])
         if gt <: IntrinsicRoutine
-            callinfo = CallMeta(Const(nothing), MethodResultPure())
+            return CallMeta(Const(nothing), nothing)
         else
-            callinfo = Core.Compiler.abstract_call_known(interp, f, fargs, argtypes, sv, max_methods)
+            return Core.Compiler.abstract_call_known(interp, f, fargs, argtypes, sv, max_methods)
         end
-        return CallMeta(callinfo.rt, nothing)
     else # mark other intrinsic pure
         return Core.Compiler.CallMeta(Const(nothing), MethodResultPure())
     end
@@ -180,8 +165,7 @@ function group_quantum_stmts_perm(ir::IRCode)
                     exit_block!(perms, cstmts_tape, qstmts_tape)
                     push!(perms, v)
                 # intrinsic
-                @case Expr(:invoke, _, GlobalRef(Intrinsics, :gate), args...) ||
-                    Expr(:invoke, _, GlobalRef(Intrinsics, :ctrl), args...)
+                @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), _...)
                     push!(qstmts_tape, v)
                 @case ::ReturnNode || ::GotoIfNot || ::GotoNode
                     exit_block!(perms, cstmts_tape, qstmts_tape)

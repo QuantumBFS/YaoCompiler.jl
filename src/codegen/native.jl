@@ -1,4 +1,4 @@
-const YaoCompilerJob = CompilerJob{T, P} where {T <: YaoCompileTarget, P <: YaoCompileParams}
+const YaoCompilerJob = CompilerJob{<: YaoCompileTarget}
 
 function ci_cache_populate(cache::CodeCache, target::YaoCompileTarget, mi::MethodInstance,
         min_world, max_world, options::HardwareFreeOptions)
@@ -90,7 +90,7 @@ function jit_compile(job::YaoCompilerJob)
     mi = method_instance(job.source.f, job.source.tt, world)
     cache = get!(GLOBAL_CI_CACHE, job.target, GPUCompiler.CodeCache())
     llvm_specfunc, llvm_func, llvm_mod =
-        compile_method_instance(cache, job.target, mi, job.params.options, world)
+        compile_method_instance(cache, job.target, mi, job.params, world)
 
     specfunc_name = LLVM.name(llvm_specfunc)
     func_name = LLVM.name(llvm_func)
@@ -124,7 +124,7 @@ const jit_compiled_cache = Dict{UInt,Any}()
 
 function compile(target::YaoCompileTarget, f::F, tt::TT=Tuple{}, options::HardwareFreeOptions=HardwareFreeOptions()) where {F, TT <: Type}
     fspec = FunctionSpec(f, tt, false, nothing)
-    job = CompilerJob(target, fspec, YaoCompileParams(options))
+    job = CompilerJob(target, fspec, options)
     return GPUCompiler.cached_compilation(jit_compiled_cache, job, jit_compile, jit_link)
 end
 

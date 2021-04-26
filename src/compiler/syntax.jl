@@ -1,17 +1,17 @@
 xlocations(ex) = Expr(:call, :($YaoLocations.Locations), ex)
 xctrl_locations(ex) = Expr(:call, :($YaoLocations.CtrlLocations), ex)
 
-macro gate(ex::Expr)
+macro apply(ex::Expr)
     @match ex begin
-        :($locs => $gate) => esc(xcall(GlobalRef(Intrinsics, :gate), gate, xlocations(locs)))
-        _ => error("syntax: invalid syntax, expect @gate <locs> => <gate>")
+        :($locs => $gate) => esc(xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs)))
+        _ => error("syntax: invalid syntax, expect @apply <locs> => <gate>")
     end
 end
 
-macro ctrl(ctrl_locs, ex::Expr)
+macro apply(ctrl_locs, ex::Expr)
     @match ex begin
-        :($locs => $gate) => esc(xcall(GlobalRef(Intrinsics, :ctrl), gate, xlocations(locs), xctrl_locations(ctrl_locs)))
-        _ => error("syntax: invalid syntax, expect @ctrl <ctrl_locs> <locs> => <gate>")
+        :($locs => $gate) => esc(xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs), xctrl_locations(ctrl_locs)))
+        _ => error("syntax: invalid syntax, expect @apply <ctrl_locs> <locs> => <gate>")
     end
 end
 
@@ -115,6 +115,7 @@ function is_syntax_macro(ex)
     @match ex begin
         Symbol("@gate") => true
         Symbol("@ctrl") => true
+        Symbol("@apply") => true
         Symbol("@measure") => true
         Symbol("@barrier") => true
         Expr(:., :YaoCompiler, QuoteNode(name)) => is_syntax_macro(name)
@@ -124,15 +125,16 @@ function is_syntax_macro(ex)
     end
 end
 
+# NOTE: locs => gate is only a syntax sugar for gate(gate, locs)
 function transpile_gate_syntax(ex)
     @match ex begin
         # this only treat => syntax in block/let/if/for etc. as gate stmt
         :($locs => $gate) =>
-            xcall(GlobalRef(Intrinsics, :gate), gate, xlocations(locs))
-        Expr(:call, :gate, gate, locs) =>
-            xcall(GlobalRef(Intrinsics, :gate), xlocations(locs))
-        Expr(:call, :ctrl, gate, locs, ctrl) =>
-            xcall(GlobalRef(Intrinsics, :ctrl), gate, xlocations(locs), xctrl_locations(ctrl))
+            xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs))
+        Expr(:call, :apply, gate, locs) =>
+            xcall(GlobalRef(Intrinsics, :apply), xlocations(locs))
+        Expr(:call, :apply, gate, locs, ctrl) =>
+            xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs), xctrl_locations(ctrl))
         Expr(:call, :measure, locs) => xcall(GlobalRef(Intrinsics, :measure), xlocations(locs))
         Expr(:call, :barrier, locs) => xcall(GlobalRef(Intrinsics, :barrier), xlocations(locs))
         Expr(:call, :expect, locs) => xcall(GlobalRef(Intrinsics, :expect), xlocations(locs))
@@ -152,6 +154,11 @@ function transpile_gate_syntax(ex)
                 return Expr(:macrocall, name, map(transpile_gate_syntax, args)...)
             end
         end
+        # check misused keyword error
+        Expr(:call, :apply, _...) => error("syntax: apply is a preserved intrinsic function")
+        Expr(:call, :measure, _...) => error("syntax: apply is a preserved intrinsic function")
+        Expr(:call, :barrier, _...) => error("syntax: apply is a preserved intrinsic function")
+        Expr(:call, :expect, _...) => error("syntax: apply is a preserved intrinsic function")
         # we only white list other syntax here to be safe
         Expr(:block, args...) ||
         Expr(:if, args...) ||
@@ -175,7 +182,7 @@ end
     return finish(new)
 end
 
-@generated function Intrinsics.gate(op::Operation, ::Locations)
+@generated function Intrinsics.apply(op::Operation, ::Locations)
     ci, nargs = obtain_codeinfo(op)
     new = NewCodeInfo(ci)
     operation = insert!(new.slots, 2, Symbol("#op#"))
@@ -184,13 +191,13 @@ end
 
     for (v, stmt) in new
         @switch stmt begin
-            @case Expr(:call, GlobalRef(Intrinsics, :gate), gate, locs)
+            @case Expr(:call, GlobalRef(Intrinsics, :apply), gate, locs)
                 new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                new[v] = xcall(GlobalRef(Intrinsics, :gate), gate, new_locs)
-            @case Expr(:call, GlobalRef(Intrinsics, :ctrl), gate, locs, ctrl)
+                new[v] = xcall(GlobalRef(Intrinsics, :apply), gate, new_locs)
+            @case Expr(:call, GlobalRef(Intrinsics, :apply), gate, locs, ctrl)
                 new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
                 new_ctrl = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, ctrl))
-                new[v] = xcall(GlobalRef(Intrinsics, :ctrl), gate, new_locs, new_ctrl)
+                new[v] = xcall(GlobalRef(Intrinsics, :apply), gate, new_locs, new_ctrl)
             @case Expr(:call, GlobalRef(Intrinsics, :measure), locs)
                 new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
                 new[v] = xcall(GlobalRef(Intrinsics, :measure), new_locs)
@@ -210,7 +217,7 @@ end
     return finish(new)
 end
 
-@generated function Intrinsics.ctrl(op::Operation, ::Locations, ::CtrlLocations)
+@generated function Intrinsics.apply(op::Operation, ::Locations, ::CtrlLocations)
     ci, nargs = obtain_codeinfo(op)
     new = NewCodeInfo(ci)
     operation = insert!(new.slots, 2, Symbol("#op#"))
@@ -220,14 +227,14 @@ end
 
     for (v, stmt) in new
         @switch stmt begin
-            @case Expr(:call, GlobalRef(Intrinsics, :gate), gate, locs)
+            @case Expr(:call, GlobalRef(Intrinsics, :apply), gate, locs)
                 new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                new[v] = xcall(GlobalRef(Intrinsics, :ctrl), gate, new_locs, glob_ctrl)
-            @case Expr(:call, GlobalRef(Intrinsics, :ctrl), gate, locs, ctrl)
+                new[v] = xcall(GlobalRef(Intrinsics, :apply), gate, new_locs, glob_ctrl)
+            @case Expr(:call, GlobalRef(Intrinsics, :apply), gate, locs, ctrl)
                 new_locs = push!(new, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
                 new_ctrl = push!(new, xcall(GlobalRef(Base, :getindex), glob_locs, ctrl))
                 new_ctrl = push!(new, xcall(GlobalRef(YaoLocations, :merge_locations), new_ctrl, glob_ctrl))
-                new[v] = xcall(GlobalRef(Intrinsics, :ctrl), gate, new_locs, new_ctrl)
+                new[v] = xcall(GlobalRef(Intrinsics, :apply), gate, new_locs, new_ctrl)
             @case Expr(:call, GlobalRef(Intrinsics, :measure), locs)
                 new[v] = :(error("cannot apply quantum control on measurement"))
             @case Expr(:(=), slot, Expr(:call, GlobalRef(Intrinsics, :measure), locs))

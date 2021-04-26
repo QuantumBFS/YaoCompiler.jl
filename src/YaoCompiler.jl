@@ -13,7 +13,7 @@ module YaoCompiler
 # export routine_name
 
 
-export @device, @gate, @ctrl, @measure, @barrier
+export @device, @apply, @gate, @ctrl, @measure, @barrier
 
 export YaoInterpreter
 # # reflections
