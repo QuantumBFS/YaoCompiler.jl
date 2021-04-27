@@ -59,9 +59,10 @@ YaoCompiler.GLOBAL_CI_CACHE[YaoCompiler.JLDummyTarget()] = YaoCompiler.GPUCompil
 interp = YaoInterpreter()
 op = main_circuit()
 
+op = circuit(1.0, 2.0)
 
 ci = @code_lowered Intrinsics.main(op)
-ci, type = code_typed(Intrinsics.main, (typeof(op), ); interp)[1]
+ci, type = code_typed(Intrinsics.apply, (DummyReg, typeof(op)); interp)[1]
 code_ircode(Intrinsics.main, (typeof(op), ); interp)[1]
 mi = method_instances(Intrinsics.main, (typeof(op), ))[1]
 
@@ -69,15 +70,11 @@ fspec = FunctionSpec(Intrinsics.main, Tuple{typeof(op)}, false, nothing) #=name=
 job = CompilerJob(YaoCompiler.JLDummyTarget(), fspec, YaoCompiler.YaoCompileParams())
 llvm_specfunc, llvm_func, llvm_mod = YaoCompiler.compile_method_instance(job, mi)
 
-f = YaoCompiler.compile(YaoCompiler.JLDummyTarget(), Intrinsics.main, Tuple{typeof(op)})
+using YaoAPI
+struct DummyReg <: AbstractRegister{1}
+end
 
-f(op)
+f = YaoCompiler.compile(YaoCompiler.JLDummyTarget(), Intrinsics.apply, Tuple{DummyReg, typeof(op)})
 
-op = main_circuit()
-interp = YaoInterpreter()
-ci, type = code_ircode(Intrinsics.main, (typeof(op), ); interp)[1]
+f(DummyReg(), op)
 
-ir = YaoCompiler.inline_const!(ci)
-ir = const_invoke!(YaoLocations.map_check_nothrow, ir, GlobalRef(YaoLocations, :map_check))
-ir = compact!(ir, true)
-ir = Core.Compiler.cfg_simplify!(ir)

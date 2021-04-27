@@ -174,42 +174,18 @@ function transpile_gate_syntax(ex)
     end
 end
 
-@generated function Intrinsics.main(op::Operation)
+@generated function Intrinsics.apply(::AbstractRegister, op::Operation)
     ci, nargs = obtain_codeinfo(op)
     new = NewCodeInfo(ci)
-    operation = insert!(new.slots, 2, Symbol("#op#"))
+    register = insert!(new.slots, 2, Symbol("#register#"))
+    operation = insert!(new.slots, 3, Symbol("#op#"))
     unpack_operation!(new, operation, nargs)
-    return finish(new)
-end
-
-@generated function Intrinsics.apply(op::Operation, ::Locations)
-    ci, nargs = obtain_codeinfo(op)
-    new = NewCodeInfo(ci)
-    operation = insert!(new.slots, 2, Symbol("#op#"))
-    glob_locs = insert!(new.slots, 3, Symbol("#locs#"))
-    unpack_operation!(new, operation, nargs)
-
     for (v, stmt) in new
         @switch stmt begin
-            @case Expr(:call, GlobalRef(Intrinsics, :apply), gate, locs)
-                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                new[v] = xcall(GlobalRef(Intrinsics, :apply), gate, new_locs)
-            @case Expr(:call, GlobalRef(Intrinsics, :apply), gate, locs, ctrl)
-                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                new_ctrl = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, ctrl))
-                new[v] = xcall(GlobalRef(Intrinsics, :apply), gate, new_locs, new_ctrl)
-            @case Expr(:call, GlobalRef(Intrinsics, :measure), locs)
-                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                new[v] = xcall(GlobalRef(Intrinsics, :measure), new_locs)
-            @case Expr(:(=), slot, Expr(:call, GlobalRef(Intrinsics, :measure), locs))
-                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                new[v] = Expr(:(=), slot, xcall(GlobalRef(Intrinsics, :measure), new_locs))
-            @case Expr(:call, GlobalRef(Intrinsics, :barrier), locs)
-                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                new[v] = xcall(GlobalRef(Intrinsics, :barrier), new_locs)
-            @case Expr(:call, GlobalRef(Intrinsics, :expect), locs)
-                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                new[v] = xcall(GlobalRef(Intrinsics, :expect), new_locs)
+            @case Expr(:call, GlobalRef(&Intrinsics, name), args...)
+                new[v] = xcall(GlobalRef(Intrinsics, name), register, args...)
+            @case Expr(:(=), slot, Expr(:call, GlobalRef(&Intrinsics, name), args...))
+                new[v] = Expr(:(=), slot, Expr(:call, GlobalRef(Intrinsics, name), register, args...))
             @case _
                 nothing
         end
@@ -217,35 +193,90 @@ end
     return finish(new)
 end
 
-@generated function Intrinsics.apply(op::Operation, ::Locations, ::CtrlLocations)
+function _update_slot_stmt(f, new, v, stmt)
+    @switch stmt begin
+        @case Expr(:call, _...)
+            new[v] = f(stmt)
+        @case Expr(:(=), slot, rhs)
+            new[v] = Expr(:(=), slot, f(rhs))
+        @case _
+            nothing
+    end
+end
+
+@generated function Intrinsics.apply(::AbstractRegister, op::Operation, ::Locations)
     ci, nargs = obtain_codeinfo(op)
     new = NewCodeInfo(ci)
-    operation = insert!(new.slots, 2, Symbol("#op#"))
-    glob_locs = insert!(new.slots, 3, Symbol("#locs#"))
-    glob_ctrl = insert!(new.slots, 4, Symbol("#ctrl#"))
+    register = insert!(new.slots, 2, Symbol("#register#"))
+    operation = insert!(new.slots, 3, Symbol("#op#"))
+    glob_locs = insert!(new.slots, 4, Symbol("#locs#"))
     unpack_operation!(new, operation, nargs)
 
     for (v, stmt) in new
-        @switch stmt begin
-            @case Expr(:call, GlobalRef(Intrinsics, :apply), gate, locs)
-                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                new[v] = xcall(GlobalRef(Intrinsics, :apply), gate, new_locs, glob_ctrl)
-            @case Expr(:call, GlobalRef(Intrinsics, :apply), gate, locs, ctrl)
-                new_locs = push!(new, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                new_ctrl = push!(new, xcall(GlobalRef(Base, :getindex), glob_locs, ctrl))
-                new_ctrl = push!(new, xcall(GlobalRef(YaoLocations, :merge_locations), new_ctrl, glob_ctrl))
-                new[v] = xcall(GlobalRef(Intrinsics, :apply), gate, new_locs, new_ctrl)
-            @case Expr(:call, GlobalRef(Intrinsics, :measure), locs)
-                new[v] = :(error("cannot apply quantum control on measurement"))
-            @case Expr(:(=), slot, Expr(:call, GlobalRef(Intrinsics, :measure), locs))
-                new[v] = :(error("cannot apply quantum control on measurement"))
-            @case Expr(:call, GlobalRef(Intrinsics, :barrier), locs)
-                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                new[v] = xcall(GlobalRef(Intrinsics, :barrier), new_locs)
-            @case Expr(:call, GlobalRef(Intrinsics, :expect), locs)
-                new[v] = :(error("cannot apply quantum control on measurement (expectation)"))
-            @case _
-                nothing
+        _update_slot_stmt(new, v, stmt) do stmt
+            @switch stmt begin
+                @case Expr(:call, GlobalRef(&Intrinsics, :apply), gate, locs)
+                    new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                    return xcall(GlobalRef(Intrinsics, :apply), register, gate, new_locs)
+
+                @case Expr(:call, GlobalRef(&Intrinsics, :apply), gate, locs, ctrl)
+                    new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                    new_ctrl = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, ctrl))
+                    return xcall(GlobalRef(Intrinsics, :apply), register, gate, new_locs, new_ctrl)
+
+                @case Expr(:call, GlobalRef(&Intrinsics, :measure), locs)
+                    new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                    return xcall(GlobalRef(Intrinsics, :measure), register, new_locs)
+
+                @case Expr(:call, GlobalRef(&Intrinsics, :barrier), locs)
+                    new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                    return xcall(GlobalRef(Intrinsics, :barrier), register, new_locs)
+
+                @case Expr(:call, GlobalRef(&Intrinsics, :expect), locs)
+                    new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                    return xcall(GlobalRef(Intrinsics, :expect), register, new_locs)
+                @case _
+                    return stmt
+            end
+        end
+    end
+    return finish(new)
+end
+
+@generated function Intrinsics.apply(::AbstractRegister, op::Operation, ::Locations, ::CtrlLocations)
+    ci, nargs = obtain_codeinfo(op)
+    new = NewCodeInfo(ci)
+    register = insert!(new.slots, 2, Symbol("#register#"))
+    operation = insert!(new.slots, 3, Symbol("#op#"))
+    glob_locs = insert!(new.slots, 4, Symbol("#locs#"))
+    glob_ctrl = insert!(new.slots, 5, Symbol("#ctrl#"))
+    unpack_operation!(new, operation, nargs)
+
+    for (v, stmt) in new
+        _update_slot_stmt(new, v, stmt) do stmt
+            @switch stmt begin
+                @case Expr(:call, GlobalRef(&Intrinsics, :apply), gate, locs)
+                    new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                    return xcall(GlobalRef(Intrinsics, :apply), register, gate, new_locs, glob_ctrl)
+
+                @case Expr(:call, GlobalRef(&Intrinsics, :apply), gate, locs, ctrl)
+                    new_locs = push!(new, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                    new_ctrl = push!(new, xcall(GlobalRef(Base, :getindex), glob_locs, ctrl))
+                    new_ctrl = push!(new, xcall(GlobalRef(YaoLocations, :merge_locations), new_ctrl, glob_ctrl))
+                    return xcall(GlobalRef(Intrinsics, :apply), register, gate, new_locs, new_ctrl)
+
+                @case Expr(:call, GlobalRef(&Intrinsics, :measure), locs)
+                    return :(error("cannot apply quantum control on measurement"))
+
+                @case Expr(:call, GlobalRef(&Intrinsics, :barrier), locs)
+                    new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                    return xcall(GlobalRef(Intrinsics, :barrier), register, new_locs)
+
+                @case Expr(:call, GlobalRef(&Intrinsics, :expect), locs)
+                    return :(error("cannot apply quantum control on measurement (expectation)"))
+                @case _
+                    nothing
+            end
         end
     end
     return finish(new)

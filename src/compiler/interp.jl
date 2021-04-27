@@ -107,7 +107,7 @@ function abstract_call_quantum(
     if f === Intrinsics.measure
         return Core.Compiler.CallMeta(Int, MethodResultPure())
     elseif f === Intrinsics.apply # || f === Intrinsics.ctrl
-        gt = widenconst(argtypes[2])
+        gt = widenconst(argtypes[3])
         if gt <: IntrinsicRoutine
             return CallMeta(Const(nothing), nothing)
         else

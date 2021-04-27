@@ -39,6 +39,7 @@ is_one_qubit_gate(x) = false
 
 module Intrinsics
 
+using YaoAPI
 using MLStyle
 using YaoLocations
 using CompilerPluginTools
@@ -46,26 +47,64 @@ using ..YaoCompiler: YaoCompiler, @intrinsic, IntrinsicRoutine, Routine
 
 export X, Y, Z, H, S, T, shift, Rx, Ry, Rz, main, apply, measure, barrier, expect
 
-@intrinsic_stub device main(gate::Routine)
+# @intrinsic_stub device main(gate::Routine)
 
-function apply(gate::Routine, loc::Locations)
+@noinline function apply(r::AbstractRegister, gate::Routine)
     throw(CompilerPluginTools.IntrinsicError("apply must be executed inside @device"))
 end
 
-function apply(gate::Routine, loc::Locations, ctrl::CtrlLocations)
+@noinline function apply(r::AbstractRegister, gate::Routine, loc::Locations)
     throw(CompilerPluginTools.IntrinsicError("apply must be executed inside @device"))
 end
 
-isintrinsic(::typeof(apply)) = true
+@noinline function apply(r::AbstractRegister, gate::Routine, loc::Locations, ctrl::CtrlLocations)
+    throw(CompilerPluginTools.IntrinsicError("apply must be executed inside @device"))
+end
 
-# NOTE: other measurement options are just syntax sugars
-# TODO: check in typeinf
-@intrinsic_stub device measure(locs::Locations)
-@intrinsic_stub device barrier(locs::Locations)
+@noinline function measure(r::AbstractRegister, ::Locations)
+    throw(CompilerPluginTools.IntrinsicError("measure must be executed inside @device"))
+end
+
+@noinline function barrier(r::AbstractRegister, ::Locations)
+    throw(CompilerPluginTools.IntrinsicError("barrier must be executed inside @device"))
+end
+
+@noinline function expect(r::AbstractRegister, ::Locations, nshots::Int)
+    throw(CompilerPluginTools.IntrinsicError("expect must be executed inside @device"))
+end
+
+# these are just syntax sugars inside device
+@noinline function apply(gate::Routine)
+    throw(CompilerPluginTools.IntrinsicError("apply must be executed inside @device"))
+end
+
+@noinline function apply(gate::Routine, loc::Locations)
+    throw(CompilerPluginTools.IntrinsicError("apply must be executed inside @device"))
+end
+
+@noinline function apply(gate::Routine, loc::Locations, ctrl::CtrlLocations)
+    throw(CompilerPluginTools.IntrinsicError("apply must be executed inside @device"))
+end
+
+@noinline function measure(::Locations)
+    throw(CompilerPluginTools.IntrinsicError("measure must be executed inside @device"))
+end
+
+@noinline function barrier(::Locations)
+    throw(CompilerPluginTools.IntrinsicError("barrier must be executed inside @device"))
+end
 
 # NOTE: this is in principal a for loop + measure
 # but for easy manipulation, let's make it a first-class
-@intrinsic_stub device expect(locs::Locations, nshots::Int)
+@noinline function expect(::Locations, nshots::Int)
+    throw(CompilerPluginTools.IntrinsicError("expect must be executed inside @device"))
+end
+
+isintrinsic(::typeof(apply)) = true
+isintrinsic(::typeof(measure)) = true
+isintrinsic(::typeof(barrier)) = true
+isintrinsic(::typeof(expect)) = true
+isintrinsic(x) = false
 
 @intrinsic X
 @intrinsic Y

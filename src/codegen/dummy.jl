@@ -6,15 +6,15 @@ function target_specific_pipeline(::JLDummyTarget, ir::IRCode)
     for i in 1:length(ir.stmts)
         e = ir.stmts[i][:inst]
         @switch e begin
-            @case Expr(:invoke, _, GlobalRef(Intrinsics, :measure), locs)
+            @case Expr(:invoke, _, GlobalRef(Intrinsics, :measure), reg, locs)
                 ir.stmts[i][:inst] = QuoteNode(5)
-            @case Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), locs)
+            @case Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), reg, locs)
                 ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Base, :println), Argument(2))
                 ir.stmts[i][:type] = Nothing
-            @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), gate, locs)
+            @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, gate, locs)
                 ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Base, :println), Argument(2))
                 ir.stmts[i][:type] = Nothing
-            @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), gate, locs, ctrl)
+            @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, gate, locs, ctrl)
                 ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Base, :println), Argument(2))
                 ir.stmts[i][:type] = Nothing
             @case _
