@@ -54,14 +54,13 @@ include("codegen/llvmopt.jl")
 include("codegen/native.jl")
 include("codegen/dummy.jl")
 include("codegen/emulation.jl")
-include("codegen/qasm2.jl")
-include("codegen/qobj2.jl")
 
 # We have one global JIT and TM
 const orc = Ref{LLVM.OrcJIT}()
 const tm = Ref{LLVM.TargetMachine}()
 
 function __init__()
+    TimerOutputs.reset_timer!(to)
     opt_level = Base.JLOptions().opt_level
     if opt_level < 2
         optlevel = LLVM.API.LLVMCodeGenLevelNone
@@ -79,30 +78,5 @@ function __init__()
         return LLVM.dispose(orc[])
     end
 end
-
-
-# include("compiler/qasm.jl")
-
-# using .QASM: @qasm_str
-# export @qasm_str
-
-# # compiler internal extensions
-# include("compiler/interpreter.jl")
-# include("compiler/codeinfo.jl")
-# include("compiler/optimize.jl")
-
-# # code generators
-# include("compiler/codegen/codegen.jl")
-
-# include("compiler/reflection.jl")
-# include("compiler/utils.jl")
-# # include("compiler/validation.jl")
-# # include("compiler/trace.jl")
-
-# function __init__()
-#     TimerOutputs.reset_timer!(to)
-# end
-
-# include("runtime/intrinsics.jl")
 
 end # module

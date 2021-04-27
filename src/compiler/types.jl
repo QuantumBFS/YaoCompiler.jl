@@ -57,3 +57,21 @@ routine_name(::Type{<:GenericRoutine{name}}) where {name} = name
 routine_name(::Type{T}) where {T<:IntrinsicRoutine} = nameof(T)
 routine_name(::Type{<:Operation{P}}) where {P} = routine_name(P)
 routine_name(::Type{<:Adjoint{P}}) where {P} = Symbol("adjoint_", routine_name(P))
+
+# struct Chain
+#     args::Vector{Any}
+# end
+
+# struct Gate
+#     operation
+#     locations # SSAValue/Locations
+# end
+
+# struct Ctrl
+#     gate::Gate
+#     ctrl # SSAValue/CtrlLocation
+# end
+
+# @as_record Chain
+# @as_record Gate
+# @as_record Ctrl

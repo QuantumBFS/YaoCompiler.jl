@@ -20,26 +20,9 @@ end
 
 is_one_qubit_gate(x) = false
 
-# function intrinsic_m(ex::Expr)
-#     ex.head === :call || error("expect a function call or a symbol")
-#     name = ex.args[1]::Symbol
-#     args = rm_annotations.(ex.args[2:end])
-
-#     body = Expr(:block)
-#     def = Expr(:struct, false, name, body)
-
-#     return quote
-#         Core.@__doc__ const $name = $IntrinsicRoutine{$(QuoteNode(name))}()
-
-#         function (self::$IntrinsicRoutine{$(QuoteNode(name))})($(ex.args[2:end]...))
-#             return $IntrinsicSpec(self, $(rm_annotations.(ex.args[2:end])...))
-#         end
-#     end
-# end
-
 module Intrinsics
 
-using YaoAPI
+using YaoAPI: AbstractRegister
 using MLStyle
 using YaoLocations
 using CompilerPluginTools
@@ -47,64 +30,22 @@ using ..YaoCompiler: YaoCompiler, @intrinsic, IntrinsicRoutine, Routine
 
 export X, Y, Z, H, S, T, shift, Rx, Ry, Rz, main, apply, measure, barrier, expect
 
-# @intrinsic_stub device main(gate::Routine)
+# true intrinsics
+@intrinsic_stub device apply(r::AbstractRegister, gate::Routine)
+@intrinsic_stub device apply(r::AbstractRegister, gate::Routine, ::Locations)
+@intrinsic_stub device apply(r::AbstractRegister, gate::Routine, ::Locations, ::CtrlLocations)
+@intrinsic_stub device measure(r::AbstractRegister, ::Locations)
+@intrinsic_stub device barrier(r::AbstractRegister, ::Locations)
+@intrinsic_stub device expect(r::AbstractRegister, ::Locations, nshots::Int)
 
-@noinline function apply(r::AbstractRegister, gate::Routine)
-    throw(CompilerPluginTools.IntrinsicError("apply must be executed inside @device"))
-end
-
-@noinline function apply(r::AbstractRegister, gate::Routine, loc::Locations)
-    throw(CompilerPluginTools.IntrinsicError("apply must be executed inside @device"))
-end
-
-@noinline function apply(r::AbstractRegister, gate::Routine, loc::Locations, ctrl::CtrlLocations)
-    throw(CompilerPluginTools.IntrinsicError("apply must be executed inside @device"))
-end
-
-@noinline function measure(r::AbstractRegister, ::Locations)
-    throw(CompilerPluginTools.IntrinsicError("measure must be executed inside @device"))
-end
-
-@noinline function barrier(r::AbstractRegister, ::Locations)
-    throw(CompilerPluginTools.IntrinsicError("barrier must be executed inside @device"))
-end
-
-@noinline function expect(r::AbstractRegister, ::Locations, nshots::Int)
-    throw(CompilerPluginTools.IntrinsicError("expect must be executed inside @device"))
-end
-
-# these are just syntax sugars inside device
-@noinline function apply(gate::Routine)
-    throw(CompilerPluginTools.IntrinsicError("apply must be executed inside @device"))
-end
-
-@noinline function apply(gate::Routine, loc::Locations)
-    throw(CompilerPluginTools.IntrinsicError("apply must be executed inside @device"))
-end
-
-@noinline function apply(gate::Routine, loc::Locations, ctrl::CtrlLocations)
-    throw(CompilerPluginTools.IntrinsicError("apply must be executed inside @device"))
-end
-
-@noinline function measure(::Locations)
-    throw(CompilerPluginTools.IntrinsicError("measure must be executed inside @device"))
-end
-
-@noinline function barrier(::Locations)
-    throw(CompilerPluginTools.IntrinsicError("barrier must be executed inside @device"))
-end
-
-# NOTE: this is in principal a for loop + measure
-# but for easy manipulation, let's make it a first-class
-@noinline function expect(::Locations, nshots::Int)
-    throw(CompilerPluginTools.IntrinsicError("expect must be executed inside @device"))
-end
-
-isintrinsic(::typeof(apply)) = true
-isintrinsic(::typeof(measure)) = true
-isintrinsic(::typeof(barrier)) = true
-isintrinsic(::typeof(expect)) = true
-isintrinsic(x) = false
+# this is just for doing overlay since we don't
+# have explicit register semantic inside @device
+@intrinsic_stub device apply(gate::Routine)
+@intrinsic_stub device apply(gate::Routine, ::Locations)
+@intrinsic_stub device apply(gate::Routine, ::Locations, ::CtrlLocations)
+@intrinsic_stub device measure(::Locations)
+@intrinsic_stub device barrier(::Locations)
+@intrinsic_stub device expect(::Locations, nshots::Int)
 
 @intrinsic X
 @intrinsic Y
