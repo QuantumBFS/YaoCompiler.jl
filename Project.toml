@@ -3,6 +3,11 @@ uuid = "89adb604-71c9-4ada-adbb-83a91803605c"
 authors = ["Roger-Luo <rogerluo.rl18@gmail.com> and contributors"]
 version = "0.1.0"
 
+[deps]
+MLStyle = "d8e11817-5142-5d16-987a-aa16d5891078"
+OpenQASM = "a8821629-a4c0-4df7-9e00-12969ff383a7"
+RBNF = "83ef0002-5b9e-11e9-219b-65bac3c6d69c"
+
 [compat]
 julia = "1.6.1"
 
