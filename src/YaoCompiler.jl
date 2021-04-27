@@ -23,6 +23,7 @@ export YaoInterpreter
 
 using MLStyle
 using YaoAPI
+using YaoArrayRegister
 using LLVM
 using BitBasis
 using Expronicon

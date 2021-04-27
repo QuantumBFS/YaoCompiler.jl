@@ -74,7 +74,41 @@ using YaoAPI
 struct DummyReg <: AbstractRegister{1}
 end
 
-f = YaoCompiler.compile(YaoCompiler.JLDummyTarget(), Intrinsics.apply, Tuple{DummyReg, typeof(op)})
+using YaoArrayRegister
+r = rand_state(5)
+op = main_circuit()
+f = YaoCompiler.compile(YaoCompiler.JLEmulationTarget(), Intrinsics.apply, Tuple{typeof(r), typeof(op)})
+f(r, op)
 
-f(DummyReg(), op)
+@device function circuit(theta, phi)
+    1 => X
+    1 => Y # equivalent to @apply 1 => Y
+    @apply 1 4 => Rx(theta)
+    @apply 2 4 => Ry(phi)
+    apply(X, 1, 4)
+    return 2 + im
+end
 
+@device function main_circuit()
+    ret = @apply 1:4 => circuit(1.0, 2.0)
+    apply(Rx(2.0), 1, 2)
+    return ret
+end
+
+function test_circuit(r, theta, phi)
+    instruct!(r, Val(:X), (1, ))
+    instruct!(r, Val(:Y), (1, ))
+    instruct!(r, Val(:Rx), (4, ), (1, ), (1, ), theta)
+    instruct!(r, Val(:Ry), (4, ), (2, ), (1, ), phi)
+    instruct!(r, Val(:X), (1, ), (4, ), (1, ))
+    instruct!(r, Val(:Rx), (1, ), (2, ), (1, ), 2.0)
+end
+
+r = rand_state(5)
+r1 = copy(r)
+r2 = copy(r)
+
+test_circuit(r1, 1.0, 2.0)
+
+f(r2)
+r1 ≈ r2
