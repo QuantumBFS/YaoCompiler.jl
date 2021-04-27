@@ -4,6 +4,7 @@ using YaoCompiler
 using GPUCompiler
 using YaoCompiler.Intrinsics
 using CompilerPluginTools
+using YaoCompiler.Intrinsics: measure
 
 @device function circuit(theta, phi)
     1 => X
@@ -11,7 +12,8 @@ using CompilerPluginTools
     @apply 1 4 => Rx(theta)
     @apply 2 4 => Ry(phi)
     apply(X, 1, 4)
-    return 2 + im
+    c = measure(2)
+    return (a = 1, b = c)
 end
 
 @device function main_circuit()
@@ -112,3 +114,9 @@ test_circuit(r1, 1.0, 2.0)
 
 f(r2)
 r1 ≈ r2
+
+
+r = rand_state(5)
+op = main_circuit()
+f = YaoCompiler.compile(YaoCompiler.OpenQASM2Target(), Intrinsics.apply, Tuple{typeof(r), typeof(op)})
+

@@ -105,7 +105,7 @@ function codegen_routine_stub(def::JLFunction, typename)
         whereparams=def.whereparams,
         rettype=def.rettype,
         line=def.line,
-        body=transpile_gate_syntax(def.body)
+        body=transpile_gate_syntax(transpile_intrinsic(def.body))
     )
 
     return codegen_ast(jlfn)
@@ -126,11 +126,8 @@ function is_syntax_macro(ex)
 end
 
 # NOTE: locs => gate is only a syntax sugar for gate(gate, locs)
-function transpile_gate_syntax(ex)
+function transpile_intrinsic(ex)
     @match ex begin
-        # this only treat => syntax in block/let/if/for etc. as gate stmt
-        :($locs => $gate) =>
-            xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs))
         Expr(:call, :apply, gate, locs) =>
             xcall(GlobalRef(Intrinsics, :apply), xlocations(locs))
         Expr(:call, :apply, gate, locs, ctrl) =>
@@ -138,6 +135,21 @@ function transpile_gate_syntax(ex)
         Expr(:call, :measure, locs) => xcall(GlobalRef(Intrinsics, :measure), xlocations(locs))
         Expr(:call, :barrier, locs) => xcall(GlobalRef(Intrinsics, :barrier), xlocations(locs))
         Expr(:call, :expect, locs) => xcall(GlobalRef(Intrinsics, :expect), xlocations(locs))
+        # check misused keyword error
+        Expr(:call, :apply, _...) => error("syntax: apply is a preserved intrinsic function")
+        Expr(:call, :measure, _...) => error("syntax: apply is a preserved intrinsic function")
+        Expr(:call, :barrier, _...) => error("syntax: apply is a preserved intrinsic function")
+        Expr(:call, :expect, _...) => error("syntax: apply is a preserved intrinsic function")
+        Expr(head, args...) => Expr(head, map(transpile_intrinsic, args)...)
+        _ => ex
+    end
+end
+
+function transpile_gate_syntax(ex)
+    @match ex begin
+        # this only treat => syntax in block/let/if/for etc. as gate stmt
+        :($locs => $gate) =>
+            xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs))
         # this will appear in anonymous function definition
         # TODO: disambuigity this and function contains only single line
         # @device function circuit(theta, phi)
@@ -154,11 +166,6 @@ function transpile_gate_syntax(ex)
                 return Expr(:macrocall, name, map(transpile_gate_syntax, args)...)
             end
         end
-        # check misused keyword error
-        Expr(:call, :apply, _...) => error("syntax: apply is a preserved intrinsic function")
-        Expr(:call, :measure, _...) => error("syntax: apply is a preserved intrinsic function")
-        Expr(:call, :barrier, _...) => error("syntax: apply is a preserved intrinsic function")
-        Expr(:call, :expect, _...) => error("syntax: apply is a preserved intrinsic function")
         # we only white list other syntax here to be safe
         Expr(:block, args...) ||
         Expr(:if, args...) ||

@@ -15,7 +15,7 @@ module YaoCompiler
 
 export @device, @apply, @gate, @ctrl, @measure, @barrier
 
-export YaoInterpreter
+export YaoInterpreter, YaoCompileTarget
 # # reflections
 # export @code_yao, @code_qasm
 # export gate_count

@@ -122,6 +122,8 @@ end
 
 const jit_compiled_cache = Dict{UInt,Any}()
 
+# NOTE: by default we just compile target to generic Julia code as fallback
+# this makes it compatible with the old simulators, symbolic engines etc.
 function compile(target::YaoCompileTarget, f::F, tt::TT=Tuple{}, options::HardwareFreeOptions=HardwareFreeOptions()) where {F, TT <: Type}
     fspec = FunctionSpec(f, tt, false, nothing)
     job = CompilerJob(target, fspec, options)
@@ -135,9 +137,3 @@ end
     end
     return expr
 end
-
-# function jit(ctx::CompilationContext, f::F, tt::TT=Tuple{}) where {F,TT<:Type}
-#     fspec = FunctionSpec(f, tt, false, nothing) #=name=#
-#     job = CompilerJob(MixtapeCompilerTarget(), fspec, MixtapeCompilerParams(ctx))
-#     return GPUCompiler.cached_compilation(jit_compiled_cache, job, _jit, _jitlink)
-# end
