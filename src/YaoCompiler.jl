@@ -38,6 +38,9 @@ const to = TimerOutput()
 timings() = (TimerOutputs.print_timer(to); println())
 enable_timings() = (TimerOutputs.enable_debug_timings(Compiler); return)
 
+@as_record Locations
+@as_record CtrlLocations
+
 include("compiler/types.jl")
 include("compiler/printing.jl")
 include("compiler/intrinsics.jl")

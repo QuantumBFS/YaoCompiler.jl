@@ -160,7 +160,7 @@ end
 function transpile_intrinsic(ex)
     @match ex begin
         Expr(:call, :apply, gate, locs) =>
-            xcall(GlobalRef(Intrinsics, :apply), xlocations(locs))
+            xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs))
         Expr(:call, :apply, gate, locs, ctrl) =>
             xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs), xctrl_locations(ctrl))
         Expr(:call, :measure, locs) => xcall(GlobalRef(Intrinsics, :measure), xlocations(locs))
