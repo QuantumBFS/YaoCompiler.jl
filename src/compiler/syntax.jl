@@ -1,28 +1,60 @@
 xlocations(ex) = Expr(:call, :($YaoLocations.Locations), ex)
 xctrl_locations(ex) = Expr(:call, :($YaoLocations.CtrlLocations), ex)
 
-macro apply(ex::Expr)
+"""
+    @gate <locs> => <gate>
+
+Syntax sugar for `apply(gate, locs)`, must be used inside `@device`.
+See also [`@device`](@ref).
+
+!!! tips
+    You don't have to write `@gate` in most cases inside `@device`.
+    But in case there is ambuigity, you can annotate the expression
+    with `@gate` explicitly.
+"""
+macro gate(ex::Expr)
     @match ex begin
         :($locs => $gate) => esc(xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs)))
-        _ => error("syntax: invalid syntax, expect @apply <locs> => <gate>")
+        _ => error("syntax: invalid syntax, expect @gate <locs> => <gate>")
     end
 end
 
-macro apply(ctrl_locs, ex::Expr)
+"""
+    @ctrl <ctrl_locs> <locs> => <gate>
+
+Syntax sugar for `apply(gate, locs, ctrl_locs)`, must be used inside `@device`.
+See also [`@device`](@ref).
+"""
+macro ctrl(ctrl_locs, ex::Expr)
     @match ex begin
         :($locs => $gate) => esc(xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs), xctrl_locations(ctrl_locs)))
-        _ => error("syntax: invalid syntax, expect @apply <ctrl_locs> <locs> => <gate>")
+        _ => error("syntax: invalid syntax, expect @ctrl <ctrl_locs> <locs> => <gate>")
     end
 end
 
+"""
+    @measure locs
+
+Syntax sugar for `measure(locs)`.
+"""
 macro measure(locs)
     esc(xcall(GlobalRef(Intrinsics, :measure), xlocations(locs)))
 end
 
+"""
+    @barrier locs
+
+Syntax sugar for `barrier(locs)`.
+"""
 macro barrier(locs)
     esc(xcall(GlobalRef(Intrinsics, :barrier), xlocations(locs)))
 end
 
+"""
+    @device <function def>
+
+Annotate a Julia function as YaoLang device kernel.
+"""
 macro device(ex)
     esc(device_m(__module__, ex))
 end
@@ -115,7 +147,6 @@ function is_syntax_macro(ex)
     @match ex begin
         Symbol("@gate") => true
         Symbol("@ctrl") => true
-        Symbol("@apply") => true
         Symbol("@measure") => true
         Symbol("@barrier") => true
         Expr(:., :YaoCompiler, QuoteNode(name)) => is_syntax_macro(name)

@@ -1,33 +1,27 @@
 module YaoCompiler
 
-# export Routine,
-#     GenericRoutine,
-#     IntrinsicRoutine,
-#     RoutineSpec,
-#     IntrinsicSpec,
-#     @ctrl,
-#     @measure,
-#     @gate,
-#     @barrier,
-#     @device
-# export routine_name
-
-
-export @device, @apply, @gate, @ctrl, @measure, @barrier
-
-export YaoInterpreter, YaoCompileTarget
-# # reflections
-# export @code_yao, @code_qasm
-# export gate_count
-# export Intrinsics
+export @device, @gate, @ctrl, @measure, @barrier,
+    compile,
+    YaoInterpreter,
+    YaoCompileTarget,
+    JLGenericTarget,
+    TargetHostKernel,
+    HardwareFreeOptions,
+    Routine,
+    GenericRoutine,
+    IntrinsicRoutine,
+    Operation,
+    AdjointOperation,
+    routine_name,
+    IntrinsicError,
+    # reexport YaoLocations
+    Locations,
+    CtrlLocations
 
 using MLStyle
 using YaoAPI
-using YaoArrayRegister
 using LLVM
-using BitBasis
 using Expronicon
-using ZXCalculus
 using YaoLocations
 using TimerOutputs
 using LinearAlgebra
@@ -52,8 +46,8 @@ include("compiler/interp.jl")
 
 include("codegen/llvmopt.jl")
 include("codegen/native.jl")
-include("codegen/dummy.jl")
-include("codegen/emulation.jl")
+# include("codegen/dummy.jl")
+# include("codegen/emulation.jl")
 
 # We have one global JIT and TM
 const orc = Ref{LLVM.OrcJIT}()
