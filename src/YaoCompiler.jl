@@ -49,8 +49,6 @@ include("compiler/interp.jl")
 
 include("codegen/llvmopt.jl")
 include("codegen/native.jl")
-# include("codegen/dummy.jl")
-# include("codegen/emulation.jl")
 
 # We have one global JIT and TM
 const orc = Ref{LLVM.OrcJIT}()
