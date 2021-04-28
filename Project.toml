@@ -26,7 +26,7 @@ MLStyle = "0.4"
 TimerOutputs = "0.5"
 YaoAPI = "0.1"
 YaoLocations = "0.1"
-ZXCalculus = "0.3"
+ZXCalculus = "0.3, 0.4"
 julia = "1.6"
 
 [extras]
