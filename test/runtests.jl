@@ -1,8 +1,14 @@
 using YaoCompiler
 using Test
 
-@testset "compiler" begin
-    include("compiler/parse.jl")
-    include("compiler/utils.jl")
-    include("compiler/circuit.jl")
+@testset "interpreter" begin
+    include("interp.jl")    
+end
+
+@testset "emulate" begin
+    include("emulate.jl")
+end
+
+@testset "printing" begin
+    include("printing.jl")
 end

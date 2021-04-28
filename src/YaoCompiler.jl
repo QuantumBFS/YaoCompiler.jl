@@ -1,123 +1,77 @@
 module YaoCompiler
 
-export @device, @gate, @ctrl, @measure, @barrier
-# reflections
-export @code_yao, @code_qasm
-export gate_count
-export Intrinsics
+export @device, @gate, @ctrl, @measure, @barrier,
+    compile,
+    YaoInterpreter,
+    YaoCompileTarget,
+    JLGenericTarget,
+    TargetHostKernel,
+    HardwareFreeOptions,
+    Routine,
+    GenericRoutine,
+    IntrinsicRoutine,
+    Operation,
+    AdjointOperation,
+    routine_name,
+    IntrinsicError,
+    # reexport YaoLocations
+    Locations,
+    CtrlLocations
 
-using LinearAlgebra
-
+using MLStyle
+using YaoAPI
+using LLVM
+using Expronicon
+using YaoLocations
 using TimerOutputs
+using LinearAlgebra
+using GPUCompiler
+using Configurations
+using CompilerPluginTools
+using LLVM.Interop
+using GPUCompiler: CodeCache, CompilerJob, AbstractCompilerTarget, AbstractCompilerParams, WorldView
+using YaoLocations: map_check, map_check_nothrow, map_error, plain, unsafe_mapping
+using CompilerPluginTools: Argument
+using Base.Meta: ParseError
+
 const to = TimerOutput()
 timings() = (TimerOutputs.print_timer(to); println())
 enable_timings() = (TimerOutputs.enable_debug_timings(Compiler); return)
 
-using ExprTools
-using MLStyle
-using YaoAPI
-using BitBasis
-using ZXCalculus
-using YaoLocations
-using YaoLocations: map_check, map_check_nothrow, map_error, plain
-# include("runtime/locations.jl")
+@as_record Locations
+@as_record CtrlLocations
 
-using Core:
-    CodeInfo,
-    SSAValue,
-    Const,
-    PartialStruct,
-    Slot,
-    GotoIfNot,
-    GotoNode,
-    SlotNumber,
-    Argument,
-    ReturnNode
-using Core.Compiler:
-    InferenceParams,
-    InferenceResult,
-    OptimizationParams,
-    OptimizationState,
-    Bottom,
-    AbstractInterpreter,
-    VarTable,
-    InferenceState,
-    CFG,
-    NewSSAValue,
-    IRCode,
-    InstructionStream,
-    CallMeta
-using Core.Compiler:
-    get_world_counter,
-    get_inference_cache,
-    may_optimize,
-    isconstType,
-    isconcretetype,
-    widenconst,
-    isdispatchtuple,
-    isinlineable,
-    is_inlineable_constant,
-    copy_exprargs,
-    convert_to_ircode,
-    coverage_enabled,
-    argtypes_to_type,
-    userefs,
-    UseRefIterator,
-    UseRef,
-    MethodResultPure,
-    is_pure_intrinsic_infer,
-    intrinsic_nothrow,
-    quoted,
-    anymap,
-    # Julia passes
-    compact!,
-    ssa_inlining_pass!,
-    getfield_elim_pass!,
-    adce_pass!,
-    type_lift_pass!,
-    verify_linetable,
-    verify_ir,
-    slot2reg
-
-using Base.Meta: ParseError
-
-export Routine,
-    GenericRoutine,
-    IntrinsicRoutine,
-    RoutineSpec,
-    IntrinsicSpec,
-    @ctrl,
-    @measure,
-    @gate,
-    @barrier,
-    @device
-export routine_name
-
-include("compiler/patch.jl")
-include("compiler/routine.jl")
+include("compiler/types.jl")
+include("compiler/printing.jl")
 include("compiler/intrinsics.jl")
-include("compiler/qasm.jl")
+include("compiler/syntax.jl")
+include("compiler/interp.jl")
 
-using .QASM: @qasm_str
-export @qasm_str
+include("codegen/llvmopt.jl")
+include("codegen/native.jl")
 
-# compiler internal extensions
-include("compiler/interpreter.jl")
-include("compiler/codeinfo.jl")
-include("compiler/optimize.jl")
-
-# code generators
-include("compiler/codegen/codegen.jl")
-
-include("compiler/reflection.jl")
-include("compiler/utils.jl")
-# include("compiler/validation.jl")
-# include("compiler/trace.jl")
+# We have one global JIT and TM
+const orc = Ref{LLVM.OrcJIT}()
+const tm = Ref{LLVM.TargetMachine}()
 
 function __init__()
     TimerOutputs.reset_timer!(to)
-end
+    opt_level = Base.JLOptions().opt_level
+    if opt_level < 2
+        optlevel = LLVM.API.LLVMCodeGenLevelNone
+    elseif opt_level == 2
+        optlevel = LLVM.API.LLVMCodeGenLevelDefault
+    else
+        optlevel = LLVM.API.LLVMCodeGenLevelAggressive
+    end
 
-include("runtime/intrinsics.jl")
+    tm[] = LLVM.JITTargetMachine(; optlevel=optlevel)
+    LLVM.asm_verbosity!(tm[], true)
+
+    orc[] = LLVM.OrcJIT(tm[]) # takes ownership of tm
+    atexit() do
+        return LLVM.dispose(orc[])
+    end
+end
 
 end # module

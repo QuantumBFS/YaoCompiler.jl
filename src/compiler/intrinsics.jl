@@ -20,29 +20,32 @@ end
 
 is_one_qubit_gate(x) = false
 
-# function intrinsic_m(ex::Expr)
-#     ex.head === :call || error("expect a function call or a symbol")
-#     name = ex.args[1]::Symbol
-#     args = rm_annotations.(ex.args[2:end])
-
-#     body = Expr(:block)
-#     def = Expr(:struct, false, name, body)
-
-#     return quote
-#         Core.@__doc__ const $name = $IntrinsicRoutine{$(QuoteNode(name))}()
-
-#         function (self::$IntrinsicRoutine{$(QuoteNode(name))})($(ex.args[2:end]...))
-#             return $IntrinsicSpec(self, $(rm_annotations.(ex.args[2:end])...))
-#         end
-#     end
-# end
-
 module Intrinsics
 
+using YaoAPI: AbstractRegister
 using MLStyle
-import YaoCompiler
-using ..YaoCompiler: @intrinsic, IntrinsicRoutine
-export X, Y, Z, H, S, T, shift, Rx, Ry, Rz
+using YaoLocations
+using CompilerPluginTools
+using ..YaoCompiler: YaoCompiler, @intrinsic, IntrinsicRoutine, Routine
+
+export X, Y, Z, H, S, T, shift, Rx, Ry, Rz, main, apply, measure, barrier, expect
+
+# true intrinsics
+@intrinsic_stub device apply(r::AbstractRegister, gate::Routine)
+@intrinsic_stub device apply(r::AbstractRegister, gate::Routine, ::Locations)
+@intrinsic_stub device apply(r::AbstractRegister, gate::Routine, ::Locations, ::CtrlLocations)
+@intrinsic_stub device measure(r::AbstractRegister, ::Locations)
+@intrinsic_stub device barrier(r::AbstractRegister, ::Locations)
+@intrinsic_stub device expect(r::AbstractRegister, ::Locations, nshots::Int)
+
+# this is just for doing overlay since we don't
+# have explicit register semantic inside @device
+@intrinsic_stub device apply(gate::Routine)
+@intrinsic_stub device apply(gate::Routine, ::Locations)
+@intrinsic_stub device apply(gate::Routine, ::Locations, ::CtrlLocations)
+@intrinsic_stub device measure(::Locations)
+@intrinsic_stub device barrier(::Locations)
+@intrinsic_stub device expect(::Locations, nshots::Int)
 
 @intrinsic X
 @intrinsic Y

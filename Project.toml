@@ -1,24 +1,28 @@
 name = "YaoCompiler"
 uuid = "b3514fdc-7bcc-425b-920a-42c43c8eb4b4"
-authors = ["Roger-luo"]
+authors = ["Roger-Luo <rogerluo.rl18@gmail.com> and contributors"]
 version = "0.1.0"
 
 [deps]
-BitBasis = "50ba71b6-fa0f-514d-ae9a-0916efc90dcf"
-ExprTools = "e2ba6199-217a-4e67-a87a-7c52f15ade04"
+CompilerPluginTools = "6b7a57c9-7cc1-4fdf-b7f5-e857abae3638"
+Configurations = "5218b696-f38b-4ac9-8b61-a12ec717816d"
+Expronicon = "6b7a57c9-7cc1-4fdf-b7f5-e857abae3636"
+GPUCompiler = "61eb1bfa-7361-4325-ad38-22787b887f55"
+LLVM = "929cbde3-209d-540e-8aea-75f648917ca0"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
-LuxurySparse = "d05aeea4-b7d4-55ac-b691-9e7fabb07ba2"
 MLStyle = "d8e11817-5142-5d16-987a-aa16d5891078"
-OpenQASM = "a8821629-a4c0-4df7-9e00-12969ff383a7"
-RBNF = "83ef0002-5b9e-11e9-219b-65bac3c6d69c"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 YaoAPI = "0843a435-28de-4971-9e8b-a9641b2983a8"
 YaoLocations = "66df03fb-d475-48f7-b449-3d9064bf085b"
 ZXCalculus = "3525faa3-032d-4235-a8d4-8c2939a218dd"
 
 [compat]
-ExprTools = "0.1"
-LuxurySparse = "0.6"
+CompilerPluginTools = "0.1"
+Configurations = "0.15"
+Expronicon = "0.6"
+GPUCompiler = "0.11"
+LLVM = "3.6"
+MLStyle = "0.4"
 TimerOutputs = "0.5"
 YaoAPI = "0.1"
 YaoLocations = "0.1"
