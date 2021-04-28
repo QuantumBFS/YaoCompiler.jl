@@ -47,21 +47,26 @@ end
 
 struct JLDummyTarget <: YaoCompileTarget end
 
+function test_pass()
+    @test true
+    return
+end
+
 function YaoCompiler.target_specific_pipeline(::JLDummyTarget, ir::IRCode)
-    mi = method_instances(println, (widenconst(ir.argtypes[2]), ))[1]
+    mi = method_instances(test_pass, ())[1]
     for i in 1:length(ir.stmts)
         e = ir.stmts[i][:inst]
         @switch e begin
             @case Expr(:invoke, _, GlobalRef(Intrinsics, :measure), reg, locs)
                 ir.stmts[i][:inst] = QuoteNode(5)
             @case Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), reg, locs)
-                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Base, :println), Argument(2))
+                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Main, :test_pass))
                 ir.stmts[i][:type] = Nothing
             @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, gate, locs)
-                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Base, :println), Argument(2))
+                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Main, :test_pass))
                 ir.stmts[i][:type] = Nothing
             @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, gate, locs, ctrl)
-                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Base, :println), Argument(2))
+                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Main, :test_pass))
                 ir.stmts[i][:type] = Nothing
             @case _
                 nothing
