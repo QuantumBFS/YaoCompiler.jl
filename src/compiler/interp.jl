@@ -120,8 +120,8 @@ end
 
 function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
     ir = inline_const!(ir)
-    ir = const_invoke!(map_check_nothrow, ir, GlobalRef(YaoLocations, :map_check))
-    ir = const_invoke!(YaoLocations.unsafe_mapping, ir, GlobalRef(YaoLocations, :unsafe_mapping))
+    ir = const_invoke!(map_check_nothrow, ir, GlobalRef(YaoLocations, :map_check_nothrow))
+    ir = const_invoke!(unsafe_mapping, ir, GlobalRef(YaoLocations, :unsafe_mapping))
     ir = const_invoke!(merge_locations, ir, GlobalRef(YaoLocations, :merge_locations))
     ir = compact!(ir, true) # Simplify CFG
     # group quantum statements so we can work on

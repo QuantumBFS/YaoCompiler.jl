@@ -30,7 +30,7 @@ using Configurations
 using CompilerPluginTools
 using LLVM.Interop
 using GPUCompiler: CodeCache, CompilerJob, AbstractCompilerTarget, AbstractCompilerParams, WorldView
-using YaoLocations: map_check, map_check_nothrow, map_error, plain
+using YaoLocations: map_check, map_check_nothrow, map_error, plain, unsafe_mapping
 using CompilerPluginTools: Argument
 using Base.Meta: ParseError
 
