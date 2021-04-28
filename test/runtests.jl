@@ -8,3 +8,7 @@ end
 @testset "emulate" begin
     include("emulate.jl")
 end
+
+@testset "printing" begin
+    include("printing.jl")
+end
