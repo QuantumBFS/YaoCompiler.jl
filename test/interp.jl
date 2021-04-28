@@ -8,8 +8,6 @@ using YaoCompiler.Intrinsics
 using CompilerPluginTools
 using YaoCompiler.Intrinsics: measure
 
-struct DummyReg <: AbstractRegister{1} end
-
 @device function test_basic(theta, phi)
     # syntax sugar
     1 => X
@@ -32,7 +30,7 @@ end
 
 op = test_pure_quantum()
 interp = YaoInterpreter()
-ci, type = code_typed(Intrinsics.apply, (DummyReg, typeof(op)); interp)[1]
+ci, type = code_typed(Intrinsics.apply, (AnyReg, typeof(op)); interp)[1]
 
 @test_codeinfo ci begin
     Expr(:invoke, _, GlobalRef(Intrinsics, :apply), Argument(2), QuoteNode(X), QuoteNode(Locations(1)))::Nothing
@@ -75,5 +73,5 @@ function YaoCompiler.target_specific_pipeline(::JLDummyTarget, ir::IRCode)
     return ir
 end
 
-f = YaoCompiler.compile(JLDummyTarget(), Intrinsics.apply, Tuple{DummyReg, typeof(op)})
-@test f(DummyReg(), op) == (a = 5, b = 5)
+f = YaoCompiler.compile(JLDummyTarget(), Intrinsics.apply, Tuple{AnyReg, typeof(op)})
+@test f(AnyReg(), op) == (a = 5, b = 5)

@@ -14,6 +14,7 @@ export @device, @gate, @ctrl, @measure, @barrier,
     AdjointOperation,
     routine_name,
     IntrinsicError,
+    AnyReg,
     # reexport YaoLocations
     Locations,
     CtrlLocations
@@ -40,6 +41,14 @@ enable_timings() = (TimerOutputs.enable_debug_timings(Compiler); return)
 
 @as_record Locations
 @as_record CtrlLocations
+
+"""
+    AnyReg <: AbstractRegister{1}
+
+A place holder for registers when compilation is not register specific.
+"""
+struct AnyReg <: AbstractRegister{1} end
+Base.show(io::IO, ::AnyReg) = print(io, "AnyReg()")
 
 include("compiler/types.jl")
 include("compiler/printing.jl")
