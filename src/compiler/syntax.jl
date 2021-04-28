@@ -192,8 +192,9 @@ function transpile_gate_syntax(ex)
             if is_syntax_macro(name)
                 return ex
             else
-                # we force the locs=>gate to be treated as gate stmt inside
-                # all @device region including user defined macros
+                # we force top scope locs=>gate to be treated as gate stmt inside
+                # all @device region including non-YaoCompiler macros to make things
+                # like @inbounds etc. work
                 return Expr(:macrocall, name, map(transpile_gate_syntax, args)...)
             end
         end
@@ -313,7 +314,7 @@ end
                 @case Expr(:call, GlobalRef(&Intrinsics, :expect), locs)
                     return :(error("cannot apply quantum control on measurement (expectation)"))
                 @case _
-                    nothing
+                    return stmt
             end
         end
     end

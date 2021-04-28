@@ -121,14 +121,15 @@ end
 function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
     ir = inline_const!(ir)
     ir = const_invoke!(map_check_nothrow, ir, GlobalRef(YaoLocations, :map_check))
+    ir = const_invoke!(merge_locations, ir, GlobalRef(YaoLocations, :merge_locations))
     ir = compact!(ir, true) # Simplify CFG
     # group quantum statements so we can work on
     # larger quantum circuits before we start optimizations
     ir = Core.Compiler.cfg_simplify!(ir)
 
-    if interp.options.group_quantum_stmts
-        ir = group_quantum_stmts!(ir)
-    end
+    # if interp.options.group_quantum_stmts
+    #     ir = group_quantum_stmts!(ir)
+    # end
 
     if interp.options.phase_teleportation
     end
