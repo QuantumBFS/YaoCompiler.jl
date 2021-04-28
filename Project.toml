@@ -10,6 +10,9 @@ RBNF = "83ef0002-5b9e-11e9-219b-65bac3c6d69c"
 
 [compat]
 julia = "1.6.1"
+MLStyle = "0.4"
+OpenQASM = "2"
+RBNF="0.2"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
