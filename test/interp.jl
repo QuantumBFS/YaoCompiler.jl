@@ -74,4 +74,6 @@ function YaoCompiler.target_specific_pipeline(::JLDummyTarget, ir::IRCode)
 end
 
 f = YaoCompiler.compile(JLDummyTarget(), Intrinsics.apply, Tuple{AnyReg, typeof(op)})
-@test f(AnyReg(), op) == (a = MeasureResult(5), b = MeasureResult(5))
+test_ret = f(AnyReg(), op)
+@test test_ret.a.result == 5
+@test test_ret.b.result == 5
