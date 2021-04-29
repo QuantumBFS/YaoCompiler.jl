@@ -1,7 +1,4 @@
-const COLOR_SCHEME = Dict(
-    :intrinsic => :blue,
-    :routine => :blue,
-)
+const COLOR_SCHEME = Dict(:intrinsic => :blue, :routine => :blue)
 
 function print_routine(io::IO, x::IntrinsicRoutine)
     print(io, routine_name(x))
@@ -40,7 +37,7 @@ function Base.show(io::IO, ::MIME"text/plain", fn::GenericRoutine{name}) where {
     )
 end
 
-function Base.show(io::IO, ::Type{T}) where {name, T <: GenericRoutine{name}}
+function Base.show(io::IO, ::Type{T}) where {name,T<:GenericRoutine{name}}
     mod = T.name.module
     print(io, "typeof(")
     mod === Main || print(io, mod, ".")

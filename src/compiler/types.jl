@@ -33,7 +33,7 @@ An `Operation` is a user defined composite routine
 that can be called in other `Operation` or execute
 on target device.
 """
-struct Operation{P, Args} <: Routine
+struct Operation{P,Args} <: Routine
     parent::P
     args::Args
 end

@@ -27,7 +27,9 @@ See also [`@device`](@ref).
 """
 macro ctrl(ctrl_locs, ex::Expr)
     @match ex begin
-        :($locs => $gate) => esc(xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs), xctrl_locations(ctrl_locs)))
+        :($locs => $gate) => esc(
+            xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs), xctrl_locations(ctrl_locs)),
+        )
         _ => error("syntax: invalid syntax, expect @ctrl <ctrl_locs> <locs> => <gate>")
     end
 end
@@ -74,8 +76,9 @@ function device_m(mod::Module, ex)
     jlfn = JLFunction(ex)
     isnothing(jlfn.kwargs) || error("kwargs is not supported")
 
-    typename = isnothing(jlfn.name) ? gensym(:routine) :
-            Meta.isexpr(jlfn.name, :(::)) ? jlfn.name.args[end] : Symbol("#", jlfn.name, "#")
+    typename =
+        isnothing(jlfn.name) ? gensym(:routine) :
+        Meta.isexpr(jlfn.name, :(::)) ? jlfn.name.args[end] : Symbol("#", jlfn.name, "#")
 
     return quote
         $(codegen_routine_type(jlfn, typename))
@@ -89,16 +92,14 @@ function codegen_routine_type(def::JLFunction, typename)
     def.name isa Symbol || isnothing(def.name) || return
     name = isnothing(def.name) ? typename : def.name
 
-    jlstruct = JLStruct(;
-        name=typename,
-        supertype=:($YaoCompiler.GenericRoutine{$(QuoteNode(name))}),
-    )
+    jlstruct =
+        JLStruct(; name = typename, supertype = :($YaoCompiler.GenericRoutine{$(QuoteNode(name))}))
     return codegen_ast(jlstruct)
 end
 
 function codegen_binding(def::JLFunction, typename)
     Meta.isexpr(def.name, :(::)) && return
-    
+
     if isnothing(def.name)
         return :(Core.@__doc__ $typename())
     else
@@ -111,14 +112,14 @@ function codegen_operation(def::JLFunction, typename)
     args = name_only.(def.args)
 
     jlfn = JLFunction(;
-        name=:($self::$typename),
-        args=def.args,
-        whereparams=def.whereparams,
-        rettype=def.rettype,
-        line=def.line,
-        body=quote
+        name = :($self::$typename),
+        args = def.args,
+        whereparams = def.whereparams,
+        rettype = def.rettype,
+        line = def.line,
+        body = quote
             $YaoCompiler.Operation($self, $(xtuple(args...)))
-        end
+        end,
     )
 
     return codegen_ast(jlfn)
@@ -132,12 +133,12 @@ function codegen_routine_stub(def::JLFunction, typename)
     end
 
     jlfn = JLFunction(;
-        name=:($YaoCompiler.routine_stub),
-        args=[:($self::$typename), def.args...],
-        whereparams=def.whereparams,
-        rettype=def.rettype,
-        line=def.line,
-        body=transpile_gate_syntax(transpile_intrinsic(def.body))
+        name = :($YaoCompiler.routine_stub),
+        args = [:($self::$typename), def.args...],
+        whereparams = def.whereparams,
+        rettype = def.rettype,
+        line = def.line,
+        body = transpile_gate_syntax(transpile_intrinsic(def.body)),
     )
 
     return codegen_ast(jlfn)
@@ -179,8 +180,7 @@ end
 function transpile_gate_syntax(ex)
     @match ex begin
         # this only treat => syntax in block/let/if/for etc. as gate stmt
-        :($locs => $gate) =>
-            xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs))
+        :($locs => $gate) => xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs))
         # this will appear in anonymous function definition
         # TODO: disambuigity this and function contains only single line
         # @device function circuit(theta, phi)
@@ -200,15 +200,13 @@ function transpile_gate_syntax(ex)
         end
         # we only white list other syntax here to be safe
         Expr(:block, args...) ||
-        Expr(:if, args...) ||
-        Expr(:elseif, args...) ||
-        Expr(:let, args...) ||
-        Expr(:for, args...) ||
-        Expr(:try, args...) =>
-            Expr(ex.head, map(transpile_gate_syntax, args)...)
+            Expr(:if, args...) ||
+            Expr(:elseif, args...) ||
+            Expr(:let, args...) ||
+            Expr(:for, args...) ||
+            Expr(:try, args...) => Expr(ex.head, map(transpile_gate_syntax, args)...)
 
-        Expr(:function, call, body) =>
-            Expr(:function, call, transpile_gate_syntax(body))
+        Expr(:function, call, body) => Expr(:function, call, transpile_gate_syntax(body))
         _ => ex
     end
 end
@@ -222,11 +220,11 @@ end
     for (v, stmt) in new
         @switch stmt begin
             @case Expr(:call, GlobalRef(&Intrinsics, name), args...)
-                new[v] = xcall(GlobalRef(Intrinsics, name), register, args...)
+            new[v] = xcall(GlobalRef(Intrinsics, name), register, args...)
             @case Expr(:(=), slot, Expr(:call, GlobalRef(&Intrinsics, name), args...))
-                new[v] = Expr(:(=), slot, Expr(:call, GlobalRef(Intrinsics, name), register, args...))
+            new[v] = Expr(:(=), slot, Expr(:call, GlobalRef(Intrinsics, name), register, args...))
             @case _
-                nothing
+            nothing
         end
     end
     return finish(new)
@@ -235,11 +233,11 @@ end
 function _update_slot_stmt(f, new, v, stmt)
     @switch stmt begin
         @case Expr(:call, _...)
-            new[v] = f(stmt)
+        new[v] = f(stmt)
         @case Expr(:(=), slot, rhs)
-            new[v] = Expr(:(=), slot, f(rhs))
+        new[v] = Expr(:(=), slot, f(rhs))
         @case _
-            nothing
+        nothing
     end
 end
 
@@ -255,27 +253,27 @@ end
         _update_slot_stmt(new, v, stmt) do stmt
             @switch stmt begin
                 @case Expr(:call, GlobalRef(&Intrinsics, :apply), gate, locs)
-                    new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                    return xcall(GlobalRef(Intrinsics, :apply), register, gate, new_locs)
+                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                return xcall(GlobalRef(Intrinsics, :apply), register, gate, new_locs)
 
                 @case Expr(:call, GlobalRef(&Intrinsics, :apply), gate, locs, ctrl)
-                    new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                    new_ctrl = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, ctrl))
-                    return xcall(GlobalRef(Intrinsics, :apply), register, gate, new_locs, new_ctrl)
+                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                new_ctrl = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, ctrl))
+                return xcall(GlobalRef(Intrinsics, :apply), register, gate, new_locs, new_ctrl)
 
                 @case Expr(:call, GlobalRef(&Intrinsics, :measure), locs)
-                    new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                    return xcall(GlobalRef(Intrinsics, :measure), register, new_locs)
+                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                return xcall(GlobalRef(Intrinsics, :measure), register, new_locs)
 
                 @case Expr(:call, GlobalRef(&Intrinsics, :barrier), locs)
-                    new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                    return xcall(GlobalRef(Intrinsics, :barrier), register, new_locs)
+                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                return xcall(GlobalRef(Intrinsics, :barrier), register, new_locs)
 
                 @case Expr(:call, GlobalRef(&Intrinsics, :expect), locs)
-                    new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                    return xcall(GlobalRef(Intrinsics, :expect), register, new_locs)
+                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                return xcall(GlobalRef(Intrinsics, :expect), register, new_locs)
                 @case _
-                    return stmt
+                return stmt
             end
         end
     end
@@ -295,26 +293,27 @@ end
         _update_slot_stmt(new, v, stmt) do stmt
             @switch stmt begin
                 @case Expr(:call, GlobalRef(&Intrinsics, :apply), gate, locs)
-                    new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                    return xcall(GlobalRef(Intrinsics, :apply), register, gate, new_locs, glob_ctrl)
+                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                return xcall(GlobalRef(Intrinsics, :apply), register, gate, new_locs, glob_ctrl)
 
                 @case Expr(:call, GlobalRef(&Intrinsics, :apply), gate, locs, ctrl)
-                    new_locs = push!(new, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                    new_ctrl = push!(new, xcall(GlobalRef(Base, :getindex), glob_locs, ctrl))
-                    new_ctrl = push!(new, xcall(GlobalRef(YaoLocations, :merge_locations), new_ctrl, glob_ctrl))
-                    return xcall(GlobalRef(Intrinsics, :apply), register, gate, new_locs, new_ctrl)
+                new_locs = push!(new, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                new_ctrl = push!(new, xcall(GlobalRef(Base, :getindex), glob_locs, ctrl))
+                new_ctrl =
+                    push!(new, xcall(GlobalRef(YaoLocations, :merge_locations), new_ctrl, glob_ctrl))
+                return xcall(GlobalRef(Intrinsics, :apply), register, gate, new_locs, new_ctrl)
 
                 @case Expr(:call, GlobalRef(&Intrinsics, :measure), locs)
-                    return :(error("cannot apply quantum control on measurement"))
+                return :(error("cannot apply quantum control on measurement"))
 
                 @case Expr(:call, GlobalRef(&Intrinsics, :barrier), locs)
-                    new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
-                    return xcall(GlobalRef(Intrinsics, :barrier), register, new_locs)
+                new_locs = insert!(new, v, xcall(GlobalRef(Base, :getindex), glob_locs, locs))
+                return xcall(GlobalRef(Intrinsics, :barrier), register, new_locs)
 
                 @case Expr(:call, GlobalRef(&Intrinsics, :expect), locs)
-                    return :(error("cannot apply quantum control on measurement (expectation)"))
+                return :(error("cannot apply quantum control on measurement (expectation)"))
                 @case _
-                    return stmt
+                return stmt
             end
         end
     end
@@ -322,7 +321,7 @@ end
 end
 
 
-function obtain_codeinfo(::Type{Operation{P, Args}}) where {P, Args}
+function obtain_codeinfo(::Type{Operation{P,Args}}) where {P,Args}
     nargs = length(Args.parameters)
     tt = Tuple{P,Args.parameters...}
     ms = methods(routine_stub, tt)
@@ -364,7 +363,7 @@ function unpack_operation!(new::NewCodeInfo, op::NewSlotNumber, nargs::Int)
     push!(new, Expr(:(=), SlotNumber(2), parent))
 
     for k in 1:nargs
-        push!(new, Expr(:(=), SlotNumber(k+2), xcall(GlobalRef(Base, :getindex), args, k)))
+        push!(new, Expr(:(=), SlotNumber(k + 2), xcall(GlobalRef(Base, :getindex), args, k)))
     end
     return new
 end

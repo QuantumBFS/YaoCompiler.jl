@@ -33,14 +33,55 @@ interp = YaoInterpreter()
 ci, type = code_typed(Intrinsics.apply, (AnyReg, typeof(op)); interp)[1]
 
 @test_codeinfo ci begin
-    Expr(:invoke, _, GlobalRef(Intrinsics, :apply), Argument(2), QuoteNode(X), QuoteNode(Locations(1)))::Nothing
-    Expr(:invoke, _, GlobalRef(Intrinsics, :apply), Argument(2), QuoteNode(Z), QuoteNode(Locations(2)))::Nothing
-    Expr(:invoke, _, GlobalRef(Intrinsics, :apply), Argument(2), QuoteNode(Rx(1.0)),
-        QuoteNode(Locations(4)), QuoteNode(&(CtrlLocations(1))))::Nothing
-    Expr(:invoke, _, GlobalRef(Intrinsics, :apply), Argument(2),
-        QuoteNode(Ry(2.0)), QuoteNode(Locations(4)), QuoteNode(&(CtrlLocations(2))))::Nothing
-    Expr(:invoke, _, GlobalRef(Intrinsics, :measure), Argument(2), QuoteNode(Locations(3)))::MeasureResult{Int}
-    Expr(:invoke, _, GlobalRef(Intrinsics, :apply), Argument(2), QuoteNode(Y), QuoteNode(Locations(3)))::Nothing
+    Expr(
+        :invoke,
+        _,
+        GlobalRef(Intrinsics, :apply),
+        Argument(2),
+        QuoteNode(X),
+        QuoteNode(Locations(1)),
+    )::Nothing
+    Expr(
+        :invoke,
+        _,
+        GlobalRef(Intrinsics, :apply),
+        Argument(2),
+        QuoteNode(Z),
+        QuoteNode(Locations(2)),
+    )::Nothing
+    Expr(
+        :invoke,
+        _,
+        GlobalRef(Intrinsics, :apply),
+        Argument(2),
+        QuoteNode(Rx(1.0)),
+        QuoteNode(Locations(4)),
+        QuoteNode(&(CtrlLocations(1))),
+    )::Nothing
+    Expr(
+        :invoke,
+        _,
+        GlobalRef(Intrinsics, :apply),
+        Argument(2),
+        QuoteNode(Ry(2.0)),
+        QuoteNode(Locations(4)),
+        QuoteNode(&(CtrlLocations(2))),
+    )::Nothing
+    Expr(
+        :invoke,
+        _,
+        GlobalRef(Intrinsics, :measure),
+        Argument(2),
+        QuoteNode(Locations(3)),
+    )::MeasureResult{Int}
+    Expr(
+        :invoke,
+        _,
+        GlobalRef(Intrinsics, :apply),
+        Argument(2),
+        QuoteNode(Y),
+        QuoteNode(Locations(3)),
+    )::Nothing
 end
 
 struct JLDummyTarget <: YaoCompileTarget end
@@ -56,18 +97,18 @@ function YaoCompiler.target_specific_pipeline(::JLDummyTarget, ir::IRCode)
         e = ir.stmts[i][:inst]
         @switch e begin
             @case Expr(:invoke, _, GlobalRef(Intrinsics, :measure), reg, locs)
-                ir.stmts[i][:inst] = QuoteNode(MeasureResult(5))
+            ir.stmts[i][:inst] = QuoteNode(MeasureResult(5))
             @case Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), reg, locs)
-                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Main, :test_pass))
-                ir.stmts[i][:type] = Nothing
+            ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Main, :test_pass))
+            ir.stmts[i][:type] = Nothing
             @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, gate, locs)
-                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Main, :test_pass))
-                ir.stmts[i][:type] = Nothing
+            ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Main, :test_pass))
+            ir.stmts[i][:type] = Nothing
             @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, gate, locs, ctrl)
-                ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Main, :test_pass))
-                ir.stmts[i][:type] = Nothing
+            ir.stmts[i][:inst] = Expr(:invoke, mi, GlobalRef(Main, :test_pass))
+            ir.stmts[i][:type] = Nothing
             @case _
-                nothing
+            nothing
         end
     end
     return ir

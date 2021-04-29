@@ -1,6 +1,10 @@
 module YaoCompiler
 
-export @device, @gate, @ctrl, @measure, @barrier,
+export @device,
+    @gate,
+    @ctrl,
+    @measure,
+    @barrier,
     compile,
     YaoInterpreter,
     YaoCompileTarget,
@@ -76,7 +80,7 @@ function __init__()
         optlevel = LLVM.API.LLVMCodeGenLevelAggressive
     end
 
-    tm[] = LLVM.JITTargetMachine(; optlevel=optlevel)
+    tm[] = LLVM.JITTargetMachine(; optlevel = optlevel)
     LLVM.asm_verbosity!(tm[], true)
 
     orc[] = LLVM.OrcJIT(tm[]) # takes ownership of tm

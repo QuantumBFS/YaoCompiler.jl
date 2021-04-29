@@ -1,8 +1,14 @@
-const YaoCompilerJob = CompilerJob{<: YaoCompileTarget}
+const YaoCompilerJob = CompilerJob{<:YaoCompileTarget}
 
-function ci_cache_populate(cache::CodeCache, target::YaoCompileTarget, mi::MethodInstance,
-        min_world, max_world, options::HardwareFreeOptions)
-    interp = YaoInterpreter(;target, options, cache)
+function ci_cache_populate(
+    cache::CodeCache,
+    target::YaoCompileTarget,
+    mi::MethodInstance,
+    min_world,
+    max_world,
+    options::HardwareFreeOptions,
+)
+    interp = YaoInterpreter(; target, options, cache)
     src = Core.Compiler.typeinf_ext_toplevel(interp, mi)
     wvc = WorldView(cache, min_world, max_world)
     @assert Core.Compiler.haskey(wvc, mi)
@@ -17,7 +23,13 @@ function ci_cache_populate(cache::CodeCache, target::YaoCompileTarget, mi::Metho
     return ci
 end
 
-function compile_method_instance(cache, target::YaoCompileTarget, method_instance::MethodInstance, options::HardwareFreeOptions, world)
+function compile_method_instance(
+    cache,
+    target::YaoCompileTarget,
+    method_instance::MethodInstance,
+    options::HardwareFreeOptions,
+    world,
+)
     if GPUCompiler.ci_cache_lookup(cache, method_instance, world, typemax(Cint)) === nothing
         ci_cache_populate(cache, target, method_instance, world, typemax(Cint), options)
     end
@@ -32,25 +44,30 @@ function compile_method_instance(cache, target::YaoCompileTarget, method_instanc
         LLVM.API.LLVMDebugEmissionKindFullDebug
     end
 
-    lookup_fun = (mi, min_world, max_world) -> GPUCompiler.ci_cache_lookup(cache, mi, min_world, max_world)
+    lookup_fun =
+        (mi, min_world, max_world) -> GPUCompiler.ci_cache_lookup(cache, mi, min_world, max_world)
     lookup_cb = @cfunction($lookup_fun, Any, (Any, UInt, UInt))
     params = Base.CodegenParams(;
-        track_allocations  = false,
-        code_coverage      = false,
-        prefer_specsig     = true,
-        gnu_pubnames       = false,
-        debug_info_kind    = Cint(debug_info_kind),
-        lookup             = Base.unsafe_convert(Ptr{Nothing}, lookup_cb)
+        track_allocations = false,
+        code_coverage = false,
+        prefer_specsig = true,
+        gnu_pubnames = false,
+        debug_info_kind = Cint(debug_info_kind),
+        lookup = Base.unsafe_convert(Ptr{Nothing}, lookup_cb),
     )
 
     # generate IR
     GC.@preserve lookup_cb begin
-        native_code = ccall(:jl_create_native, Ptr{Cvoid},
-                            (Vector{MethodInstance}, Base.CodegenParams, Cint),
-                            [method_instance], params, #=extern policy=# 1)
+        native_code = ccall(
+            :jl_create_native,
+            Ptr{Cvoid},
+            (Vector{MethodInstance}, Base.CodegenParams, Cint),
+            [method_instance],
+            params,
+            1,
+        ) #=extern policy=#
         @assert native_code != C_NULL
-        llvm_mod_ref = ccall(:jl_get_llvm_module, LLVM.API.LLVMModuleRef,
-                            (Ptr{Cvoid},), native_code)
+        llvm_mod_ref = ccall(:jl_get_llvm_module, LLVM.API.LLVMModuleRef, (Ptr{Cvoid},), native_code)
         @assert llvm_mod_ref != C_NULL
         llvm_mod = LLVM.Module(llvm_mod_ref)
     end
@@ -61,19 +78,35 @@ function compile_method_instance(cache, target::YaoCompileTarget, method_instanc
     # get the top-level function index
     llvm_func_idx = Ref{Int32}(-1)
     llvm_specfunc_idx = Ref{Int32}(-1)
-    ccall(:jl_get_function_id, Nothing,
-          (Ptr{Cvoid}, Any, Ptr{Int32}, Ptr{Int32}),
-          native_code, code, llvm_func_idx, llvm_specfunc_idx)
+    ccall(
+        :jl_get_function_id,
+        Nothing,
+        (Ptr{Cvoid}, Any, Ptr{Int32}, Ptr{Int32}),
+        native_code,
+        code,
+        llvm_func_idx,
+        llvm_specfunc_idx,
+    )
     @assert llvm_func_idx[] != -1
     @assert llvm_specfunc_idx[] != -1
 
     # get the top-level function)
-    llvm_func_ref = ccall(:jl_get_llvm_function, LLVM.API.LLVMValueRef,
-                          (Ptr{Cvoid}, UInt32), native_code, llvm_func_idx[]-1)
+    llvm_func_ref = ccall(
+        :jl_get_llvm_function,
+        LLVM.API.LLVMValueRef,
+        (Ptr{Cvoid}, UInt32),
+        native_code,
+        llvm_func_idx[] - 1,
+    )
     @assert llvm_func_ref != C_NULL
     llvm_func = LLVM.Function(llvm_func_ref)
-    llvm_specfunc_ref = ccall(:jl_get_llvm_function, LLVM.API.LLVMValueRef,
-                              (Ptr{Cvoid}, UInt32), native_code, llvm_specfunc_idx[]-1)
+    llvm_specfunc_ref = ccall(
+        :jl_get_llvm_function,
+        LLVM.API.LLVMValueRef,
+        (Ptr{Cvoid}, UInt32),
+        native_code,
+        llvm_specfunc_idx[] - 1,
+    )
     @assert llvm_specfunc_ref != C_NULL
     llvm_specfunc = LLVM.Function(llvm_specfunc_ref)
 
@@ -100,7 +133,7 @@ function jit_compile(job::YaoCompilerJob)
     return llvm_mod, func_name, specfunc_name
 end
 
-struct TargetHostKernel{F, TT, Target <: YaoCompileTarget}
+struct TargetHostKernel{F,TT,Target<:YaoCompileTarget}
     f::F
     target::Target
     specfunc::Ptr{Cvoid}
@@ -117,7 +150,12 @@ function jit_link(job::CompilerJob, (llvm_mod, func_name, specfunc_name))
     if specfunc_ptr === C_NULL || func_ptr === C_NULL
         @error "Compilation error" fspec specfunc_ptr func_ptr
     end
-    TargetHostKernel{typeof(fspec.f), fspec.tt, typeof(job.target)}(fspec.f, job.target, specfunc_ptr, func_ptr)
+    TargetHostKernel{typeof(fspec.f),fspec.tt,typeof(job.target)}(
+        fspec.f,
+        job.target,
+        specfunc_ptr,
+        func_ptr,
+    )
 end
 
 const jit_compiled_cache = Dict{UInt,Any}()
@@ -126,13 +164,18 @@ compile(target::YaoCompileTarget, f, tt) = compile(target, f, tt, HardwareFreeOp
 
 # NOTE: by default we just compile target to generic Julia code as fallback
 # this makes it compatible with the old simulators, symbolic engines etc.
-function compile(target::YaoCompileTarget, f, tt, options::HardwareFreeOptions)
+function compile(
+    target::YaoCompileTarget,
+    f::F,
+    tt::TT = Tuple{},
+    options::HardwareFreeOptions = HardwareFreeOptions(),
+) where {F,TT<:Type}
     fspec = FunctionSpec(f, tt, false, nothing)
     job = CompilerJob(target, fspec, options)
     return GPUCompiler.cached_compilation(jit_compiled_cache, job, jit_compile, jit_link)
 end
 
-@generated function (kernel::TargetHostKernel{F, TT})(args...) where {F, TT}
+@generated function (kernel::TargetHostKernel{F,TT})(args...) where {F,TT}
     expr = quote
         args = Any[args...]
         ccall(kernel.func, Any, (Any, Ptr{Any}, Int32), kernel.f, args, length(args))
