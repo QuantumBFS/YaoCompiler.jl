@@ -184,15 +184,6 @@ end
 
 target_specific_pipeline(::YaoCompileTarget, ir::IRCode) = ir
 
-function use_native_measure_type!(ir::IRCode)
-    for v in 1:length(ir.stmts)
-        stmt = ir.stmts[v][:inst]
-        @switch stmt begin
-            @case Expr(:invoke, _, GlobalRef(Intrinsic, :measure), reg, locs)
-        end
-    end
-end
-
 function group_quantum_stmts!(ir::IRCode)
     perm = group_quantum_stmts_perm(ir)
     return permute_stmts!(ir, perm)
