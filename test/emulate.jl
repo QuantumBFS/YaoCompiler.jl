@@ -12,7 +12,12 @@ for G in [:X, :Y, :Z, :H, :S, :T]
         return
     end
 
-    @eval function Intrinsics.apply(r::ArrayReg, ::Intrinsics.$(Symbol(G, :Gate)), locs::Locations, ctrl::CtrlLocations)
+    @eval function Intrinsics.apply(
+        r::ArrayReg,
+        ::Intrinsics.$(Symbol(G, :Gate)),
+        locs::Locations,
+        ctrl::CtrlLocations,
+    )
         ctrl_locs = Tuple(ctrl.storage)
         ctrl_configs = ntuple(length(ctrl)) do k
             Int(ctrl.flags[k])
@@ -28,7 +33,12 @@ for axis in [:x, :y, :z]
         return
     end
 
-    @eval function Intrinsics.apply(r::ArrayReg, op::Intrinsics.$(Symbol(:R, axis)), locs::Locations, ctrl::CtrlLocations)
+    @eval function Intrinsics.apply(
+        r::ArrayReg,
+        op::Intrinsics.$(Symbol(:R, axis)),
+        locs::Locations,
+        ctrl::CtrlLocations,
+    )
         ctrl_locs = Tuple(ctrl.storage)
         ctrl_configs = ntuple(length(ctrl)) do k
             Int(ctrl.flags[k])
@@ -60,18 +70,18 @@ end
 
 r = rand_state(10)
 op = test_location_map(1.0)
-f = YaoCompiler.compile(JLEmulationTarget(), Intrinsics.apply, Tuple{typeof(r), typeof(op)})
+f = YaoCompiler.compile(JLEmulationTarget(), Intrinsics.apply, Tuple{typeof(r),typeof(op)})
 
 function location_map(r, theta)
-    instruct!(r, Val(:X), (3, ))
-    instruct!(r, Val(:Z), (4, ))
-    instruct!(r, Val(:Rx), (6, ), (3, ), (1, ), theta)
-    instruct!(r, Val(:Ry), (6, ), (4, ), (1, ), 2.5)
+    instruct!(r, Val(:X), (3,))
+    instruct!(r, Val(:Z), (4,))
+    instruct!(r, Val(:Rx), (6,), (3,), (1,), theta)
+    instruct!(r, Val(:Ry), (6,), (4,), (1,), 2.5)
 
-    instruct!(r, Val(:X), (3, ), (1, ), (1, ))
-    instruct!(r, Val(:Z), (4, ), (1, ), (1, ))
-    instruct!(r, Val(:Rx), (6, ), (1, 3), (1, 1), theta)
-    instruct!(r, Val(:Ry), (6, ), (1, 4), (1, 1), 2.1)
+    instruct!(r, Val(:X), (3,), (1,), (1,))
+    instruct!(r, Val(:Z), (4,), (1,), (1,))
+    instruct!(r, Val(:Rx), (6,), (1, 3), (1, 1), theta)
+    instruct!(r, Val(:Ry), (6,), (1, 4), (1, 1), 2.1)
     return
 end
 

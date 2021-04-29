@@ -2,7 +2,7 @@ using YaoCompiler
 using Test
 
 @testset "interpreter" begin
-    include("interp.jl")    
+    include("interp.jl")
 end
 
 @testset "emulate" begin
