@@ -1,5 +1,5 @@
 # we cache different compile target results
-const GLOBAL_CI_CACHE = Dict{Any, GPUCompiler.CodeCache}()
+const GLOBAL_CI_CACHE = Dict{Any,GPUCompiler.CodeCache}()
 
 @option struct HardwareFreeOptions <: AbstractCompilerParams
     group_quantum_stmts::Bool = true
@@ -27,7 +27,15 @@ end
 
 Hook for handling different measurement result type. Default type is `MeasureResult`.
 """
-function target_measure_result_type(target::YaoCompileTarget, interp, f, fargs, argtypes, sv, max_methods)
+function target_measure_result_type(
+    target::YaoCompileTarget,
+    interp,
+    f,
+    fargs,
+    argtypes,
+    sv,
+    max_methods,
+)
     target_measure_result_type(target)
 end
 
@@ -39,26 +47,26 @@ target_measure_result_type(::YaoCompileTarget) = MeasureResult{Int}
 
 get_cache(target::YaoCompileTarget) = GLOBAL_CI_CACHE[target]
 
-@option struct YaoInterpreter{Target <: YaoCompileTarget} <: JuliaLikeInterpreter
+@option struct YaoInterpreter{Target<:YaoCompileTarget} <: JuliaLikeInterpreter
     native_interpreter::NativeInterpreter = NativeInterpreter()
     target::Target = JLGenericTarget()
     cache::CodeCache = get!(GLOBAL_CI_CACHE, target, GPUCompiler.CodeCache())
     options::HardwareFreeOptions = HardwareFreeOptions()
 end
 
-YaoInterpreter(target;kw...) = YaoInterpreter(NativeInterpreter(), target; kw...)
+YaoInterpreter(target; kw...) = YaoInterpreter(NativeInterpreter(), target; kw...)
 
-function Core.Compiler.code_cache(interp::YaoInterpreter)    
+function Core.Compiler.code_cache(interp::YaoInterpreter)
     Core.Compiler.WorldView(get_cache(interp.target), Core.Compiler.get_world_counter(interp))
 end
 
 function Core.Compiler.abstract_call(
-        interp::YaoInterpreter,
-        fargs::Union{Nothing,Vector{Any}},
-        argtypes::Vector{Any},
-        sv::InferenceState,
-        max_methods::Int = InferenceParams(interp).MAX_METHODS,
-    )
+    interp::YaoInterpreter,
+    fargs::Union{Nothing,Vector{Any}},
+    argtypes::Vector{Any},
+    sv::InferenceState,
+    max_methods::Int = InferenceParams(interp).MAX_METHODS,
+)
 
     # @show fargs
     ft = argtypes[1]
@@ -131,7 +139,8 @@ function abstract_call_quantum(
 )
 
     if f === Intrinsics.measure
-        result_type = target_measure_result_type(interp.target, interp, f, fargs, argtypes, sv, max_methods)
+        result_type =
+            target_measure_result_type(interp.target, interp, f, fargs, argtypes, sv, max_methods)
         return Core.Compiler.CallMeta(result_type, nothing)
     elseif f === Intrinsics.apply # || f === Intrinsics.ctrl
         gt = widenconst(argtypes[3])
@@ -198,22 +207,22 @@ function group_quantum_stmts_perm(ir::IRCode)
             @switch e begin
                 # terminator
                 @case Expr(:invoke, _, GlobalRef(Intrinsics, :measure), args...) ||
-                    Expr(:invoke, _, GlobalRef(Intrinsics, :expect), args...) ||
-                    Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), args...)
+                      Expr(:invoke, _, GlobalRef(Intrinsics, :expect), args...) ||
+                      Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), args...)
 
-                    exit_block!(perms, cstmts_tape, qstmts_tape)
-                    push!(perms, v)
+                exit_block!(perms, cstmts_tape, qstmts_tape)
+                push!(perms, v)
                 # intrinsic
                 @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), _...)
-                    push!(qstmts_tape, v)
+                push!(qstmts_tape, v)
                 @case ::ReturnNode || ::GotoIfNot || ::GotoNode
-                    exit_block!(perms, cstmts_tape, qstmts_tape)
-                    push!(cstmts_tape, v)
+                exit_block!(perms, cstmts_tape, qstmts_tape)
+                push!(cstmts_tape, v)
                 @case Expr(:enter, _...)
-                    exit_block!(perms, cstmts_tape, qstmts_tape)
-                    push!(cstmts_tape, v)
+                exit_block!(perms, cstmts_tape, qstmts_tape)
+                push!(cstmts_tape, v)
                 @case _
-                    push!(cstmts_tape, v)
+                push!(cstmts_tape, v)
             end
         end
         exit_block!(perms, cstmts_tape, qstmts_tape)

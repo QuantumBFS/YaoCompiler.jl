@@ -93,6 +93,6 @@ end
 
 end
 
-@macroexpand @device function foo(x, y::Int; name="String")
+@macroexpand @device function foo(x, y::Int; name = "String")
     1 => X
 end
