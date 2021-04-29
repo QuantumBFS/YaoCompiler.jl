@@ -25,3 +25,6 @@ show(buf, MIME"text/plain"(), Rx(2.0))
 
 show(buf, MIME"text/plain"(), typeof(test_intrinsic))
 @test occursin("typeof(test_intrinsic)", String(take!(buf)))
+
+show(buf, AnyReg())
+@test occursin("AnyReg()", String(take!(buf)))
