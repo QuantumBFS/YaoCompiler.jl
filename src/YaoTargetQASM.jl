@@ -3,6 +3,7 @@ module YaoTargetQASM
 using MLStyle
 using OpenQASM
 using OpenQASM.Types
+using OpenQASM.Tools
 using YaoCompiler
 using Configurations
 using CompilerPluginTools

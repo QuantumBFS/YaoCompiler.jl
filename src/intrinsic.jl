@@ -36,28 +36,28 @@ qasm_gate_name(::Type{<:Intrinsics.Rx}) = "rx"
 qasm_gate_name(::Type{<:Intrinsics.Ry}) = "ry"
 qasm_gate_name(::Type{<:Intrinsics.Rz}) = "rz"
 
-function intrinsic_qasm(::Type{Intrinsics.XGate})
-    UGate(pi_token, qasm_int(0), pi_token, [])
+function intrinsic_qasm(::Type{Intrinsics.XGate}, qargs)
+    UGate(pi_token, qasm_int(0), pi_token, qargs[1])
 end
 
-function intrinsic_qasm(::Type{Intrinsics.YGate})
-    UGate(pi_token, divpi(2), divpi(2), nothing)
+function intrinsic_qasm(::Type{Intrinsics.YGate}, qargs)
+    UGate(pi_token, divpi(2), divpi(2), qargs[1])
 end
 
-function intrinsic_qasm(::Type{Intrinsics.ZGate})
-    UGate(qasm_int(0), qasm_int(0), pi_token, nothing)
+function intrinsic_qasm(::Type{Intrinsics.ZGate}, qargs)
+    UGate(qasm_int(0), qasm_int(0), pi_token, qargs[1])
 end
 
-function intrinsic_qasm(::Type{Intrinsics.HGate})
-    UGate(divpi(2), qasm_int(0), pi_token, nothing)
+function intrinsic_qasm(::Type{Intrinsics.HGate}, qargs)
+    UGate(divpi(2), qasm_int(0), pi_token, qargs[1])
 end
 
-function intrinsic_qasm(::Type{Intrinsics.SGate})
-    UGate(qasm_int(0), qasm_int(0), divpi(2), nothing)
+function intrinsic_qasm(::Type{Intrinsics.SGate}, qargs)
+    UGate(qasm_int(0), qasm_int(0), divpi(2), qargs[1])
 end
 
-function intrinsic_qasm(::Type{Intrinsics.TGate})
-    UGate(qasm_int(0),qasm_int(0),divpi(4), nothing)
+function intrinsic_qasm(::Type{Intrinsics.TGate}, qargs)
+    UGate(qasm_int(0),qasm_int(0),divpi(4), qargs[1])
 end
 
 # // Rotation around X-axis
@@ -67,14 +67,14 @@ end
 # // rotation around Z axis
 # gate rz(phi) a { u1(phi) a; }
 # NOTE: theta can be a variable or exp
-function intrinsic_qasm(::Type{<:Intrinsics.Rx}, theta)
-    UGate(theta, Negative(divpi(2)), divpi(2), nothing)
+function intrinsic_qasm(::Type{<:Intrinsics.Rx}, theta, qargs)
+    UGate(theta, Neg(divpi(2)), divpi(2), qargs[1])
 end
 
-function intrinsic_qasm(::Type{<:Intrinsics.Ry}, theta)
-    UGate(qasm_int(0), theta, qasm_int(0), nothing)
+function intrinsic_qasm(::Type{<:Intrinsics.Ry}, theta, qargs)
+    UGate(qasm_int(0), theta, qasm_int(0), qargs[1])
 end
 
-function intrinsic_qasm(::Type{<:Intrinsics.Rz}, theta)
-    UGate(qasm_int(0), qasm_int(0), theta, nothing)
+function intrinsic_qasm(::Type{<:Intrinsics.Rz}, theta, qargs)
+    UGate(qasm_int(0), qasm_int(0), theta, qargs[1])
 end

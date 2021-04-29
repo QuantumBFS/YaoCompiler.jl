@@ -1,12 +1,3 @@
-const kw_qreg = Token{:reserved}("qreg")
-const kw_creg = Token{:reserved}("creg")
-const kw_gate = Token{:reserved}("gate")
-
-qasm_id(s) = qasm_id(string(s))
-qasm_id(s::String) = Token{:id}(s)
-qasm_int(n::Int) = Token{:int}(string(n))
-qasm_f64(x) = Token{:float64}(string(Float64(x)))
-qasm_str(x) = Token{:str}(string("\"", x, "\""))
 
 mutable struct MainState
     src::CodeInfo
@@ -23,7 +14,7 @@ mutable struct GateState
     cargnames::Vector{SubString{String}}
 end
 
-function YaoCompiler.compile(target::OpenQASMTarget, f, tt, options::HardwareFreeOptions)
+function YaoCompiler.compile(target::OpenQASMTarget, f, tt::Type, options::HardwareFreeOptions)
     v"2.0" ≤ target.version < v"3.0" || error("only QASM 2.x is supported")
     interp = YaoInterpreter(;target, options)
     mi = method_instance(f, tt)
@@ -130,22 +121,22 @@ function emit_exp(target::OpenQASMTarget, exp, ri::RegInfo, st)
             emit_exp(target, st.src.code[id], ri, st)
 
         @case Expr(:invoke, mi, GlobalRef(_, :sin), arg) || Expr(:invoke, mi, &(QASM.sin), arg)
-            FnExp(:sin, emit_exp(target, arg, ri, st))
+            Call(:sin, emit_exp(target, arg, ri, st))
 
         @case Expr(:invoke, mi, GlobalRef(_, :cos), arg) || Expr(:invoke, mi, &(QASM.cos), arg)
-            FnExp(:cos, emit_exp(target, arg, ri, st))
+            Call(:cos, emit_exp(target, arg, ri, st))
 
         @case Expr(:invoke, mi, GlobalRef(_, :tan), arg) || Expr(:invoke, mi, &(QASM.tan), arg)
-            FnExp(:tan, emit_exp(target, arg, ri, st))
+            Call(:tan, emit_exp(target, arg, ri, st))
 
         @case Expr(:invoke, mi, GlobalRef(_, :exp), arg) || Expr(:invoke, mi, &(QASM.exp), arg)
-            FnExp(:exp, emit_exp(target, arg, ri, st))
+            Call(:exp, emit_exp(target, arg, ri, st))
 
         @case Expr(:invoke, mi, GlobalRef(_, :log), arg) || Expr(:invoke, mi, &(QASM.log), arg)
-            FnExp(:ln, emit_exp(target, arg, ri, st))
+            Call(:ln, emit_exp(target, arg, ri, st))
 
         @case Expr(:invoke, mi, GlobalRef(_, :sqrt), arg) || Expr(:invoke, mi, &(QASM.sqrt), arg)
-            FnExp(:sqrt, emit_exp(target, arg, ri, st))
+            Call(:sqrt, emit_exp(target, arg, ri, st))
 
         # unary
         @case Expr(:call, GlobalRef(mod, name), x)
@@ -153,9 +144,9 @@ function emit_exp(target::OpenQASMTarget, exp, ri::RegInfo, st)
             sym = qasm_compatible_intrinsics[f.val]
             token = Token{:reserved}(sym)
             if sym == "-"
-                Negative(emit_exp(target, x, ri, st))
+                Neg(emit_exp(target, x, ri, st))
             else
-                FnExp(token, emit_exp(target, x, ri, st))
+                Call(token, emit_exp(target, x, ri, st))
             end
         # binop
         @case Expr(:call, GlobalRef(mod, name), lhs, rhs)
@@ -207,15 +198,15 @@ end
 function emit_gate_inline(target::OpenQASMTarget, @nospecialize(gate), qargs, ri::RegInfo, st)
     @switch gate begin
         @case QuoteNode(shift(θ))
-            intrinsic_qasm(typeof(shift), θ)
+            intrinsic_qasm(typeof(shift), θ, qargs)
         @case QuoteNode(Rx(θ))
-            intrinsic_qasm(typeof(Rx), θ)
+            intrinsic_qasm(typeof(Rx), θ, qargs)
         @case QuoteNode(Ry(θ))
-            intrinsic_qasm(typeof(Ry), θ)
+            intrinsic_qasm(typeof(Ry), θ, qargs)
         @case QuoteNode(Rz(θ))
-            intrinsic_qasm(typeof(Rz), θ)
+            intrinsic_qasm(typeof(Rz), θ, qargs)
         @case QuoteNode(val) # non parametric intrinsic
-            intrinsic_qasm(typeof(val))
+            intrinsic_qasm(typeof(val), qargs)
         @case SSAValue(id) # parametric intrinsic gate
             emit_gate_parametric(target, id, qargs, ri, st)
         @case _
@@ -231,7 +222,7 @@ function emit_gate_parametric(target::OpenQASMTarget, id, qargs, ri::RegInfo, st
         @switch stmt begin
             @case Expr(:new, gt::Type{<:IntrinsicRoutine}, theta)
                 carg = emit_exp(target, theta, ri, st)
-                return intrinsic_qasm(gt, carg)
+                return intrinsic_qasm(gt, carg, qargs)
             @case _
                 error("expect gate definition, got $stmt")
         end
