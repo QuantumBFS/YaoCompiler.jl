@@ -65,6 +65,22 @@ struct MeasureResult{T}
     result::T
 end
 
+@inline function Base.:(==)(lhs::MeasureResult, rhs)
+    measure_cmp(lhs, rhs)
+end
+
+@inline function Base.:(==)(lhs, rhs::MeasureResult)
+    measure_cmp(lhs, rhs)   
+end
+
+@inline function Base.:(==)(lhs::MeasureResult, rhs::MeasureResult)
+    measure_cmp(lhs, rhs)
+end
+
+@noinline function measure_cmp(lhs, rhs)
+    throw(IntrinsicError("cannot compare measurement result outside @device"))
+end
+
 # struct Chain
 #     args::Vector{Any}
 # end

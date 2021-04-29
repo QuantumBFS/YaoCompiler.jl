@@ -116,6 +116,8 @@ function Core.Compiler.abstract_call(
         if la == 3 && argtypes[2].val isa AbstractLocations && argtypes[3].val isa AbstractLocations
             return CallMeta(Const(f(argtypes[2].val, argtypes[3].val)), MethodResultPure())
         end
+    elseif f === measure_cmp
+        return CallMeta(Bool, nothing)
     end
 
     return Core.Compiler.abstract_call_known(interp, f, fargs, argtypes, sv, max_methods)

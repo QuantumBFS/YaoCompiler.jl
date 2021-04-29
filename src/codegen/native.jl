@@ -122,9 +122,11 @@ end
 
 const jit_compiled_cache = Dict{UInt,Any}()
 
+compile(target::YaoCompileTarget, f, tt) = compile(target, f, tt, HardwareFreeOptions())
+
 # NOTE: by default we just compile target to generic Julia code as fallback
 # this makes it compatible with the old simulators, symbolic engines etc.
-function compile(target::YaoCompileTarget, f::F, tt::TT=Tuple{}, options::HardwareFreeOptions=HardwareFreeOptions()) where {F, TT <: Type}
+function compile(target::YaoCompileTarget, f, tt, options::HardwareFreeOptions)
     fspec = FunctionSpec(f, tt, false, nothing)
     job = CompilerJob(target, fspec, options)
     return GPUCompiler.cached_compilation(jit_compiled_cache, job, jit_compile, jit_link)
