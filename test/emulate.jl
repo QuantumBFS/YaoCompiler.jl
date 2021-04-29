@@ -4,7 +4,7 @@ using YaoLocations
 using YaoArrayRegister
 using YaoCompiler.Intrinsics
 
-struct JLEmulationTarget <: YaoCompileTarget end
+struct JLEmulationTarget <: NativeJuliaTarget end
 
 for G in [:X, :Y, :Z, :H, :S, :T]
     @eval function Intrinsics.apply(r::ArrayReg, ::Intrinsics.$(Symbol(G, :Gate)), locs::Locations)
@@ -36,6 +36,11 @@ for axis in [:x, :y, :z]
         instruct!(r, Val($(QuoteNode(Symbol(:R, axis)))), Tuple(locs), ctrl_locs, ctrl_configs, op.θ)
         return
     end
+end
+
+@noinline function Intrinsics.measure(r::ArrayReg, locs::Locations)
+    result = YaoArrayRegister.measure!(r, Tuple(locs))
+    return MeasureResult{typeof(result)}(result)
 end
 
 @device function test_intrinsic(theta, phi)

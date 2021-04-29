@@ -58,6 +58,13 @@ routine_name(::Type{T}) where {T<:IntrinsicRoutine} = nameof(T)
 routine_name(::Type{<:Operation{P}}) where {P} = routine_name(P)
 routine_name(::Type{<:Adjoint{P}}) where {P} = Symbol("adjoint_", routine_name(P))
 
+# this is only a place holder
+# we are not using struct because
+# singleton types will get const prop
+struct MeasureResult{T}
+    result::T
+end
+
 # struct Chain
 #     args::Vector{Any}
 # end

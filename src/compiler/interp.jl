@@ -9,6 +9,32 @@ end
 
 abstract type YaoCompileTarget <: AbstractCompilerTarget end
 
+"""
+    NativeJuliaTarget <: YaoCompileTarget
+
+This target assumes one compiles to native Julia, thus the measurement
+type will be directly inferred from native intrinsics.
+"""
+abstract type NativeJuliaTarget <: YaoCompileTarget end
+
+function target_measure_result_type(::NativeJuliaTarget, interp, f, fargs, argtypes, sv, max_methods)
+    callinfo = Core.Compiler.abstract_call_known(parent(interp), f, fargs, argtypes, sv, max_methods)
+    return callinfo.rt
+end
+
+"""
+    target_measure_result_type(target::YaoCompileTarget[, interp::YaoInterpreter, f, fargs, argtypes, sv, max_methods])
+
+Hook for handling different measurement result type. Default type is `MeasureResult`.
+"""
+function target_measure_result_type(target::YaoCompileTarget, interp, f, fargs, argtypes, sv, max_methods)
+    target_measure_result_type(target)
+end
+
+# this is not always true, we need to replace this with a compiler internal
+# type
+target_measure_result_type(::YaoCompileTarget) = MeasureResult{Int}
+
 @option struct JLGenericTarget <: YaoCompileTarget end
 
 get_cache(target::YaoCompileTarget) = GLOBAL_CI_CACHE[target]
@@ -69,10 +95,10 @@ function Core.Compiler.abstract_call(
     if Intrinsics.isintrinsic(f)
         return abstract_call_quantum(interp, f, fargs, argtypes, sv, max_methods)
     elseif (f isa UnionAll || f isa DataType) && f <: IntrinsicRoutine && allconst
-        # force intrinsic gates pure
+        # force intrinsic gates not pure to prevent inline
         callinfo = Core.Compiler.abstract_call_known(interp, f, fargs, argtypes, sv, max_methods)
-        return CallMeta(callinfo.rt, MethodResultPure())
-    elseif f === Locations && allconst
+        return CallMeta(callinfo.rt, nothing)
+    elseif f === Locations && allconst # force Locations pure to inline
         return CallMeta(Const(f(argtypes[2].val)), MethodResultPure())
     elseif f === CtrlLocations && allconst
         la = length(fargs) - 1
@@ -96,7 +122,7 @@ function Core.Compiler.abstract_call(
 end
 
 function abstract_call_quantum(
-    interp::AbstractInterpreter,
+    interp::YaoInterpreter,
     @nospecialize(f),
     fargs::Union{Nothing,Vector{Any}},
     argtypes::Vector{Any},
@@ -105,7 +131,8 @@ function abstract_call_quantum(
 )
 
     if f === Intrinsics.measure
-        return Core.Compiler.CallMeta(Int, MethodResultPure())
+        result_type = target_measure_result_type(interp.target, interp, f, fargs, argtypes, sv, max_methods)
+        return Core.Compiler.CallMeta(result_type, nothing)
     elseif f === Intrinsics.apply # || f === Intrinsics.ctrl
         gt = widenconst(argtypes[3])
         if gt <: IntrinsicRoutine
@@ -113,8 +140,8 @@ function abstract_call_quantum(
         else
             return Core.Compiler.abstract_call_known(interp, f, fargs, argtypes, sv, max_methods)
         end
-    else # mark other intrinsic pure
-        return Core.Compiler.CallMeta(Const(nothing), MethodResultPure())
+    else # mark other intrinsic not pure to prevent inline
+        return Core.Compiler.CallMeta(Const(nothing), nothing)
     end
 end
 
@@ -145,6 +172,15 @@ function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
 end
 
 target_specific_pipeline(::YaoCompileTarget, ir::IRCode) = ir
+
+function use_native_measure_type!(ir::IRCode)
+    for v in 1:length(ir.stmts)
+        stmt = ir.stmts[v][:inst]
+        @switch stmt begin
+            @case Expr(:invoke, _, GlobalRef(Intrinsic, :measure), reg, locs)
+        end
+    end
+end
 
 function group_quantum_stmts!(ir::IRCode)
     perm = group_quantum_stmts_perm(ir)
