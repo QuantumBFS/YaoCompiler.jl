@@ -52,6 +52,7 @@ get_cache(target::YaoCompileTarget) = GLOBAL_CI_CACHE[target]
     target::Target = JLGenericTarget()
     cache::CodeCache = get!(GLOBAL_CI_CACHE, target, GPUCompiler.CodeCache())
     options::HardwareFreeOptions = HardwareFreeOptions()
+    max_const_invoke_elim::Int = 10
 end
 
 YaoInterpreter(target; kw...) = YaoInterpreter(NativeInterpreter(), target; kw...)
@@ -158,14 +159,19 @@ end
 
 function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
     ir = inline_const!(ir)
-    ir = const_invoke!(map_check_nothrow, ir, GlobalRef(YaoLocations, :map_check_nothrow))
-    ir = const_invoke!(unsafe_mapping, ir, GlobalRef(YaoLocations, :unsafe_mapping))
-    ir = const_invoke!(merge_locations, ir, GlobalRef(YaoLocations, :merge_locations))
-    ir = compact!(ir, true) # Simplify CFG
-    # group quantum statements so we can work on
-    # larger quantum circuits before we start optimizations
-    ir = Core.Compiler.cfg_simplify!(ir)
-    ir = compact!(ir)
+
+    count = 0
+    while count < interp.max_const_invoke_elim && contains_const_invoke!(ir, GlobalRef(YaoLocations, :map_check_nothrow))
+        ir = const_invoke!(map_check_nothrow, ir, GlobalRef(YaoLocations, :map_check_nothrow))
+        ir = const_invoke!(unsafe_mapping, ir, GlobalRef(YaoLocations, :unsafe_mapping))
+        ir = const_invoke!(merge_locations, ir, GlobalRef(YaoLocations, :merge_locations))
+        ir = compact!(ir, true) # Simplify CFG
+        # group quantum statements so we can work on
+        # larger quantum circuits before we start optimizations
+        ir = Core.Compiler.cfg_simplify!(ir)
+        ir = compact!(ir)
+        count += 1
+    end
 
     if interp.options.group_quantum_stmts
         ir = group_quantum_stmts!(ir)
