@@ -157,19 +157,25 @@ function abstract_call_quantum(
     end
 end
 
+function elim_location_mapping!(ir::IRCode)
+    ir = const_invoke!(map_check_nothrow, ir, GlobalRef(YaoLocations, :map_check_nothrow))
+    ir = const_invoke!(unsafe_mapping, ir, GlobalRef(YaoLocations, :unsafe_mapping))
+    ir = const_invoke!(merge_locations, ir, GlobalRef(YaoLocations, :merge_locations))
+    ir = compact!(ir, true) # Simplify CFG
+    # group quantum statements so we can work on
+    # larger quantum circuits before we start optimizations
+    ir = Core.Compiler.cfg_simplify!(ir)
+    return compact!(ir)
+end
+
 function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
     ir = inline_const!(ir)
+    ir = elim_location_mapping!(ir)
 
+    # try to eliminate location mapping as much as possible
     count = 0
-    while count < interp.max_const_invoke_elim && contains_const_invoke!(ir, GlobalRef(YaoLocations, :map_check_nothrow))
-        ir = const_invoke!(map_check_nothrow, ir, GlobalRef(YaoLocations, :map_check_nothrow))
-        ir = const_invoke!(unsafe_mapping, ir, GlobalRef(YaoLocations, :unsafe_mapping))
-        ir = const_invoke!(merge_locations, ir, GlobalRef(YaoLocations, :merge_locations))
-        ir = compact!(ir, true) # Simplify CFG
-        # group quantum statements so we can work on
-        # larger quantum circuits before we start optimizations
-        ir = Core.Compiler.cfg_simplify!(ir)
-        ir = compact!(ir)
+    while count < interp.max_const_invoke_elim && contains_const_invoke(ir, GlobalRef(YaoLocations, :map_check_nothrow))
+        ir = elim_location_mapping!(ir)
         count += 1
     end
 
