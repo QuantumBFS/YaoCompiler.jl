@@ -32,12 +32,13 @@ end
     op = test_pure_quantum()
     interp = YaoInterpreter()
     ci, type = code_typed(Intrinsics.apply, (AnyReg, typeof(op)); interp)[1]
+    ci = CompilerPluginTools.rm_code_coverage_effect(ci)
     info = RegInfo(OpenQASMTarget(), ci)
 
-    @test_broken info.creg_ssa_map[:a] == 5
-    @test_broken info.creg_ssa_map[:b] == 8
-    @test_broken info.ssa_creg_map[5] === :a
-    @test_broken info.ssa_creg_map[8] === :b
+    @test info.creg_ssa_map[:a] == 5
+    @test info.creg_ssa_map[:b] == 8
+    @test info.ssa_creg_map[5] === :a
+    @test info.ssa_creg_map[8] === :b
     @test info.creg_size[:a] == 1
     @test info.creg_size[:b] == 2
     @test info.qreg_to_locs[1] == [1, 4]

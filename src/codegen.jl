@@ -19,6 +19,8 @@ function YaoCompiler.compile(target::OpenQASMTarget, f, tt::Type, options::Hardw
     interp = YaoInterpreter(;target, options)
     mi = method_instance(f, tt)
     src = Core.Compiler.typeinf_ext_toplevel(interp, mi)
+    # we need to remove code coverage effect to pass validate
+    src = CompilerPluginTools.rm_code_coverage_effect(src)
     validate(target, src)
 
     if target.toplevel
