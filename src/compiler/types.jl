@@ -70,7 +70,7 @@ end
 end
 
 @inline function Base.:(==)(lhs, rhs::MeasureResult)
-    measure_cmp(lhs, rhs)   
+    measure_cmp(lhs, rhs)
 end
 
 @inline function Base.:(==)(lhs::MeasureResult, rhs::MeasureResult)
