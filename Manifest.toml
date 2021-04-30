@@ -28,9 +28,9 @@ version = "3.27.0"
 
 [[CompilerPluginTools]]
 deps = ["Expronicon", "MLStyle"]
-path = "../CompilerPluginTools"
+git-tree-sha1 = "5143c6c876af8a3ed1866312cb1ff30aeee1db13"
 uuid = "6b7a57c9-7cc1-4fdf-b7f5-e857abae3638"
-version = "0.1.4"
+version = "0.1.5"
 
 [[Configurations]]
 deps = ["Crayons", "ExproniconLite", "OrderedCollections", "TOML"]
@@ -170,7 +170,7 @@ uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
 
 [[OpenQASM]]
 deps = ["MLStyle", "RBNF"]
-path = "../OpenQASM"
+git-tree-sha1 = "18256d0f7c4be37c52dfeecaf7acc00321b0178d"
 uuid = "a8821629-a4c0-4df7-9e00-12969ff383a7"
 version = "2.1.2"
 
@@ -277,7 +277,9 @@ version = "0.1.0"
 
 [[YaoCompiler]]
 deps = ["CompilerPluginTools", "Configurations", "Expronicon", "GPUCompiler", "LLVM", "LinearAlgebra", "MLStyle", "TimerOutputs", "YaoAPI", "YaoLocations", "ZXCalculus"]
-path = "../YaoCompiler"
+git-tree-sha1 = "967aac10d27cc7e57739fa5fee5045ca2af96599"
+repo-rev = "master"
+repo-url = "https://github.com/QuantumBFS/YaoCompiler.jl.git"
 uuid = "b3514fdc-7bcc-425b-920a-42c43c8eb4b4"
 version = "0.1.0"
 
