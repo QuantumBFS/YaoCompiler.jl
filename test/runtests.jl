@@ -14,3 +14,7 @@ end
 @testset "codegen" begin
     include("codegen.jl")
 end
+
+@testset "frontend" begin
+    include("frontend.jl")
+end

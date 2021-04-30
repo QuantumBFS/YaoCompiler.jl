@@ -5,6 +5,8 @@ using OpenQASM
 using OpenQASM.Types
 using OpenQASM.Tools
 using YaoCompiler
+using YaoLocations
+using Expronicon
 using Configurations
 using CompilerPluginTools
 using RBNF: Token
@@ -13,7 +15,7 @@ using YaoCompiler: YaoCompileTarget
 using Core: CodeInfo
 using YaoLocations: plain
 
-export OpenQASMTarget, RegInfo, code_qasm
+export OpenQASMTarget, RegInfo, code_qasm, QASM, @qasm_str
 
 @option struct OpenQASMTarget <: YaoCompileTarget
     version::VersionNumber = v"2.0"
@@ -42,5 +44,6 @@ include("validate.jl")
 include("intrinsic.jl")
 include("reginfo.jl")
 include("codegen.jl")
+include("frontend.jl")
 
 end
