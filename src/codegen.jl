@@ -187,9 +187,13 @@ function emit_gate_noinline(target::OpenQASMTarget, @nospecialize(gate), qargs, 
             cargs = Any[emit_exp(target, θ, ri, st)]
             Instruction("rz", cargs, qargs)
 
-        @case QuoteNode(val)
+        @case QuoteNode(val::IntrinsicRoutine)
             name = qasm_gate_name(typeof(val))
             Instruction(name, [], qargs)
+        @case QuoteNode(val::Operation)
+            name = string(routine_name(val))
+            cargs = [emit_exp(target, x, ri, st) for x in val.args]
+            Instruction(name, cargs, qargs)
         @case SSAValue(id) # parametric intrinsic gate
             emit_gate_parametric(target, id, qargs, ri, st)
         @case _

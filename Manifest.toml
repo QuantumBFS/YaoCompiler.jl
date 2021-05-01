@@ -277,9 +277,7 @@ version = "0.1.0"
 
 [[YaoCompiler]]
 deps = ["CompilerPluginTools", "Configurations", "Expronicon", "GPUCompiler", "LLVM", "LinearAlgebra", "MLStyle", "TimerOutputs", "YaoAPI", "YaoLocations", "ZXCalculus"]
-git-tree-sha1 = "967aac10d27cc7e57739fa5fee5045ca2af96599"
-repo-rev = "master"
-repo-url = "https://github.com/QuantumBFS/YaoCompiler.jl.git"
+path = "../YaoCompiler"
 uuid = "b3514fdc-7bcc-425b-920a-42c43c8eb4b4"
 version = "0.1.0"
 

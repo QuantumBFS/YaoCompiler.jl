@@ -47,7 +47,7 @@ function scan_registers!(record::RegisterRecord, ast::MainProgram)
 end
 
 function scan_registers!(record::RegisterRecord, ast::RegDecl)
-    nbits = transpile(ast.size)
+    nbits = transpile_token(ast.size)
     nqubits = record.nqubits
     ncbits = record.ncbits
 
@@ -194,7 +194,6 @@ function transpile(ctx::TranspileCtx, stmt)
                 "z" => :(apply($Intrinsics.Z, $locs))
                 "h" => :(apply($Intrinsics.H, $locs))
                 "s" => :(apply($Intrinsics.S, $locs))
-                "ccx" => :(apply($Intrinsics.X, $(locs[3]), $(CtrlLocations(locs[1:2]))))
                 _ => begin
                     gate = Expr(:call, GlobalRef(ctx.m, Symbol(op)), transpile_exp(ctx, cargs)...)
                     :(apply($gate, $locs))
@@ -211,7 +210,7 @@ function transpile(ctx::TranspileCtx, stmt)
             Locations(r[address+1])
 
         @case ::Token
-            transpile_token(ctx, stmt)
+            transpile_token(stmt)
 
         @case _
             error("unknown statement: $stmt")
@@ -240,13 +239,13 @@ function transpile_exp(ctx::TranspileCtx, stmt)
         @case ::Vector
             map(x->transpile_exp(ctx, x), stmt)
         @case ::Token
-            transpile_token(ctx, stmt)
+            transpile_token(stmt)
         @case _
             error("unknown expression: $stmt")
     end
 end
 
-function transpile_token(::TranspileCtx, stmt)
+function transpile_token(stmt)
     @switch stmt begin
         @case ::Token{:unnamed}
             Symbol(stmt.str)
