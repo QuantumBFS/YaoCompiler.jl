@@ -174,7 +174,8 @@ function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
 
     # try to eliminate location mapping as much as possible
     count = 0
-    while count < interp.max_const_invoke_elim && contains_const_invoke(ir, GlobalRef(YaoLocations, :map_check_nothrow))
+    while count < interp.max_const_invoke_elim &&
+        contains_const_invoke(ir, GlobalRef(YaoLocations, :map_check_nothrow))
         ir = elim_location_mapping!(ir)
         count += 1
     end
