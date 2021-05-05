@@ -20,6 +20,7 @@ IBMQClient = "0.3"
 MLStyle = "0.4"
 YaoCompiler = "0.1"
 YaoLocations = "0.1"
+YaoTargetQASM = "0.1"
 julia = "1.6"
 
 [extras]
