@@ -1,3 +1,4 @@
+using CompilerPluginTools: rm_code_coverage_effect
 using IBMQClient.Schema
 using YaoCompiler
 using YaoCompiler.Intrinsics
@@ -12,6 +13,7 @@ end
 
 @testset "basic" begin
     ci, type = @yao_code_typed(basic())[1]
+    ci = rm_code_coverage_effect(ci)
     @test measure_ssa_uses(ci) == Set{Int}()
     mi = MemoryInfo(ci)
     @test mi.qubits == Dict(1=>0, 2=>1)
@@ -48,6 +50,7 @@ end
 
 @testset "just_measure" begin
     ci, type = @yao_code_typed(just_measure())[1]
+    ci = rm_code_coverage_effect(ci)
     @test measure_ssa_uses(ci) == Set{Int}()
     mi = MemoryInfo(ci)
     @test isempty(mi.registers)
@@ -86,6 +89,7 @@ end
 
 @testset "reset_qubit" begin
     ci, type = @yao_code_typed(reset_qubit())[1]
+    ci = rm_code_coverage_effect(ci)
     @test measure_ssa_uses(ci) == Set(2)
     @test measure_ssa_returns(ci) == Set()
 
@@ -126,6 +130,7 @@ end
 
 @testset "reset_qubit_return" begin
     ci, type = @yao_code_typed(reset_qubit_return())[1]
+    ci = rm_code_coverage_effect(ci)
     @test measure_ssa_uses(ci) == Set(2)
     # @test measure_ssa_returns(ci) == Set(2)
     @test code_qobj(typeof(reset_qubit_return())) == Experiment(;
@@ -169,6 +174,7 @@ end
 
 @testset "reset_with_return" begin
     ci, type = @yao_code_typed(reset_with_return())[1]
+    ci = rm_code_coverage_effect(ci)
     @test measure_ssa_uses(ci) == Set(2)
     # @test measure_ssa_returns(ci) == Set([2, 3])
     mi = MemoryInfo(ci)
@@ -217,6 +223,7 @@ end
 
 @testset "multi_qubit_measure" begin
     ci, type = @yao_code_typed(multi_qubit_measure())[1]
+    ci = rm_code_coverage_effect(ci)
     mi = MemoryInfo(ci)
     @test mi.n_qubits == 3
     @test isempty(mi.registers)
