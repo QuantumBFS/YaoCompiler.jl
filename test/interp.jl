@@ -28,9 +28,11 @@ end
     return ret
 end
 
+ci, type = @yao_code_typed(test_pure_quantum())[1]
+
 op = test_pure_quantum()
 interp = YaoInterpreter()
-ci, type = code_typed(Intrinsics.apply, (AnyReg, typeof(op)); interp)[1]
+ci, type = @yao_code_typed(op)[1]
 
 @test_codeinfo ci begin
     Expr(

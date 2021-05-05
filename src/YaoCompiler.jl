@@ -23,7 +23,10 @@ export @device,
     AnyReg,
     # reexport YaoLocations
     Locations,
-    CtrlLocations
+    CtrlLocations,
+    # reflection
+    @yao_code_lowered,
+    @yao_code_typed
 
 using MLStyle
 using YaoAPI
@@ -61,6 +64,7 @@ include("compiler/printing.jl")
 include("compiler/intrinsics.jl")
 include("compiler/syntax.jl")
 include("compiler/interp.jl")
+include("compiler/reflection.jl")
 
 include("codegen/llvmopt.jl")
 include("codegen/native.jl")
