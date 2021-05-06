@@ -311,3 +311,47 @@ end
         ],
     )
 end
+
+@device function conditional_ctrl()
+    1 => H
+    3 => X
+    c = @measure 1
+    if c == 1
+        @ctrl 2 1 => Y
+    end
+    return
+end
+
+@testset "conditional ctrl" begin
+    @test code_qobj(typeof(conditional_ctrl())) == Experiment(;
+        header = Dict{String, Any}(
+            "description" => "Operation{typeof(conditional_ctrl), Tuple{}}",
+            "n_qubits" => 3,
+        ),
+        config = ExpConfig(;
+            memory_slots = 1,
+            seed = 1,
+            max_credits = 3,
+        ),
+        instructions = [
+            Gate(;
+                name = "h",
+                qubits = [0],
+            ),
+            Gate(;
+                name = "x",
+                qubits = [1],
+            ),
+            Measure(;
+                qubits = [0],
+                memory = [0],
+                register = [0],
+            ),
+            Gate(;
+                name = "cy",
+                qubits = [0, 2],
+                conditional = 0,
+            ),
+        ],
+    )
+end
