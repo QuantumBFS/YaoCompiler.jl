@@ -16,6 +16,7 @@ end
     ci = rm_code_coverage_effect(ci)
     @test measure_ssa_uses(ci) == Set{Int}()
     mi = MemoryInfo(ci)
+    display(mi)
     @test mi.qubits == Dict(1=>0, 2=>1)
     @test mi.n_qubits == 2
 
@@ -53,6 +54,7 @@ end
     ci = rm_code_coverage_effect(ci)
     @test measure_ssa_uses(ci) == Set{Int}()
     mi = MemoryInfo(ci)
+    display(mi)
     @test isempty(mi.registers)
 
     @test code_qobj(typeof(just_measure())) == Experiment(;
@@ -94,6 +96,7 @@ end
     @test measure_ssa_returns(ci) == Set()
 
     mi = MemoryInfo(ci)
+    display(mi)
     @test mi.registers == Dict(2=>[0])
     @test mi.n_qubits == 1
     @test mi.qubits == Dict(1=>0)

@@ -66,7 +66,14 @@ function Base.show(io::IO, ::MIME"text/plain", mi::MemoryInfo)
     println(io, "(")
     println(io, "  n_qubits=", mi.n_qubits, ",")
     println(io, "  memory_offset=", mi.memory_offset, ",")
-    println(io, "  memory_slots=", mi.memory_slots, ",")
+    if !isempty(mi.slots)
+        println(io, "  slots=Dict{Int, Vector{Int}}(")
+        for (v, slots) in mi.slots
+            println(io, "    ", v, "=>", slots, ",")
+        end
+        println(io, "  ),")
+    end
+
     if !isempty(mi.registers)
         println(io, "  registers=Dict{Int, Vector{Int}}(")
         for (v, slots) in mi.registers
