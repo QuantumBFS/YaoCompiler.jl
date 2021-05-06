@@ -11,7 +11,6 @@ MLStyle = "d8e11817-5142-5d16-987a-aa16d5891078"
 UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
 YaoCompiler = "b3514fdc-7bcc-425b-920a-42c43c8eb4b4"
 YaoLocations = "66df03fb-d475-48f7-b449-3d9064bf085b"
-YaoTargetQASM = "89adb604-71c9-4ada-adbb-83a91803605c"
 
 [compat]
 CompilerPluginTools = "0.1"
@@ -20,7 +19,6 @@ IBMQClient = "0.3"
 MLStyle = "0.4"
 YaoCompiler = "0.1"
 YaoLocations = "0.1"
-YaoTargetQASM = "0.1"
 julia = "1.6"
 
 [extras]

@@ -12,9 +12,6 @@ using YaoCompiler.Intrinsics
 using CompilerPluginTools
 using YaoCompiler: YaoCompileTarget
 using YaoLocations: plain
-# let's just reuse TargetQASM since QobjQASM is QASM-like
-using YaoTargetQASM
-using YaoTargetQASM: push_stmt!, move_to_next_quantum_statement
 
 @option struct QobjQASMTarget <: YaoCompileTarget
     nshots::Int = 1024
@@ -30,6 +27,16 @@ function code_qobj(op::Type{<:Operation}; kw...)
     description = get(kw, :description, string(op))
     target = QobjQASMTarget(;kw..., description)
     return YaoCompiler.compile(target, Intrinsics.apply, Tuple{AnyReg, op})
+end
+
+# TODO: move to YaoCompiler
+function push_stmt!(list::Vector, stmt)
+    isnothing(stmt) && return list
+    if stmt isa Vector
+        append!(list, stmt)
+    else
+        push!(list, stmt)
+    end
 end
 
 include("validate.jl")
