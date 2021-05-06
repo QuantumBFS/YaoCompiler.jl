@@ -20,7 +20,7 @@ function yao_code_lowered_m(ex)
         :($locs => $gate) => quote
             Base.code_lowered(
                 $Intrinsics.apply,
-                ($YaoCompiler.AnyReg, typeof($gate), typeof($Locations($(locs))))
+                ($YaoCompiler.AnyReg, typeof($gate), typeof($Locations($(locs)))),
             )
         end
         # apply(reg, gate)
@@ -36,7 +36,12 @@ function yao_code_lowered_m(ctrl, ex)
         :($locs => $gate) => quote
             Base.code_lowered(
                 $Intrinsics.apply,
-                ($YaoCompiler.AnyReg, typeof($gate), typeof($Locations($(locs))), typeof($CtrlLocations($ctrl)))
+                (
+                    $YaoCompiler.AnyReg,
+                    typeof($gate),
+                    typeof($Locations($(locs))),
+                    typeof($CtrlLocations($ctrl)),
+                ),
             )
         end
         _ => error("expect a locs => gate expression")
@@ -50,14 +55,15 @@ function yao_code_typed_m(ex)
             $Base.code_typed(
                 $Intrinsics.apply,
                 ($YaoCompiler.AnyReg, typeof($gate), typeof($Locations($(locs))));
-                interp=$(YaoInterpreter())
+                interp = $(YaoInterpreter()),
             )
         end
         # apply(reg, gate)
         _ => quote
             $Base.code_typed(
-                $Intrinsics.apply, ($YaoCompiler.AnyReg, typeof($ex));
-                interp=$(YaoInterpreter()),
+                $Intrinsics.apply,
+                ($YaoCompiler.AnyReg, typeof($ex));
+                interp = $(YaoInterpreter()),
             )
         end
     end
@@ -69,8 +75,13 @@ function yao_code_typed_m(ctrl, ex)
         :($locs => $gate) => quote
             Base.code_typed(
                 $Intrinsics.apply,
-                ($YaoCompiler.AnyReg, typeof($gate), typeof($Locations($(locs))), typeof($CtrlLocations($ctrl)));
-                interp=$(YaoInterpreter()),
+                (
+                    $YaoCompiler.AnyReg,
+                    typeof($gate),
+                    typeof($Locations($(locs))),
+                    typeof($CtrlLocations($ctrl)),
+                );
+                interp = $(YaoInterpreter()),
             )
         end
         _ => error("expect a locs => gate expression")
