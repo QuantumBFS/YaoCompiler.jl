@@ -97,7 +97,7 @@ end
     @test mi.registers == Dict(2=>[0])
     @test mi.n_qubits == 1
     @test mi.qubits == Dict(1=>0)
-    @test_broken code_qobj(typeof(reset_qubit())) == Experiment(;
+    @test code_qobj(typeof(reset_qubit())) == Experiment(;
         header = Dict{String, Any}(
             "description" => "Operation{typeof(reset_qubit), Tuple{}}",
             "n_qubits" => 1,
@@ -133,7 +133,7 @@ end
     ci = rm_code_coverage_effect(ci)
     @test measure_ssa_uses(ci) == Set(2)
     # @test measure_ssa_returns(ci) == Set(2)
-    @test_broken code_qobj(typeof(reset_qubit_return())) == Experiment(;
+    @test code_qobj(typeof(reset_qubit_return())) == Experiment(;
         header = Dict{String, Any}(
             "description" => "Operation{typeof(reset_qubit_return), Tuple{}}",
             "n_qubits" => 1,
@@ -181,7 +181,7 @@ end
     @test mi.n_qubits == 2
     @test mi.registers == Dict(2=>[0])
     @test mi.qubits == Dict(1=>0, 2=>1)
-    @test_broken code_qobj(typeof(reset_with_return())) == Experiment(;
+    @test code_qobj(typeof(reset_with_return())) == Experiment(;
         header = Dict{String, Any}(
             "description" => "Operation{typeof(reset_with_return), Tuple{}}",
             "n_qubits" => 2,
@@ -269,7 +269,7 @@ end
 end
 
 @testset "multi if stmt" begin
-    @test_broken code_qobj(typeof(multi_if_measure())) == Experiment(;
+    @test code_qobj(typeof(multi_if_measure())) == Experiment(;
         header = Dict{String, Any}(
             "description" => "Operation{typeof(multi_if_measure), Tuple{}}",
             "n_qubits" => 3,
