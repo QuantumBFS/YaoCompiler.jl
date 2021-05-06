@@ -1,7 +1,7 @@
 name = "YaoTargetQobj"
 uuid = "be2ed200-ac97-4d62-828c-ed82e987dbf4"
 authors = ["Roger-Luo <rogerluo.rl18@gmail.com> and contributors"]
-version = "0.1.0"
+version = "0.2.0"
 
 [deps]
 CompilerPluginTools = "6b7a57c9-7cc1-4fdf-b7f5-e857abae3638"
