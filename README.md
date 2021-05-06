@@ -24,4 +24,4 @@ pkg> add YaoTargetQobj
 
 ## License
 
-YaoTargetQobj is released under the Apache 2 license.
+YaoTargetQobj is released under the MIT license.
