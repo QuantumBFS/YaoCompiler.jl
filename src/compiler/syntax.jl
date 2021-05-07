@@ -215,7 +215,7 @@ function transpile_gate_syntax(ex)
     end
 end
 
-@generated function Intrinsics.apply(::AbstractRegister, op::Operation)
+@generated function Intrinsics.apply(::AbstractRegister, op::Operation{P, Args}) where {P, Args}
     ci, nargs = obtain_codeinfo(op)
     new = NewCodeInfo(ci)
     register = insert!(new.slots, 2, Symbol("#register#"))
@@ -294,7 +294,7 @@ end
     return code_info
 end
 
-@generated function Intrinsics.apply(::AbstractRegister, op::Operation, ::Locations, ::CtrlLocations)
+@generated function Intrinsics.apply(::AbstractRegister, op::Operation{P, Args}, ::Locations, ::CtrlLocations) where {P, Args}
     ci, nargs = obtain_codeinfo(op)
     new = NewCodeInfo(ci)
     register = insert!(new.slots, 2, Symbol("#register#"))
