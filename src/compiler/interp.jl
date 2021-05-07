@@ -69,7 +69,6 @@ function Core.Compiler.abstract_call(
     max_methods::Int = InferenceParams(interp).MAX_METHODS,
 )
 
-    # @show fargs
     ft = argtypes[1]
     if isa(ft, Const)
         f = ft.val
@@ -147,10 +146,12 @@ function abstract_call_quantum(
         return Core.Compiler.CallMeta(result_type, nothing)
     elseif f === Intrinsics.apply # || f === Intrinsics.ctrl
         gt = widenconst(argtypes[3])
+
         if gt <: IntrinsicRoutine
             return CallMeta(Const(nothing), nothing)
         else
-            return Core.Compiler.abstract_call_known(interp, f, fargs, argtypes, sv, max_methods)
+            ret = Core.Compiler.abstract_call_known(interp, f, fargs, argtypes, sv, max_methods)
+            return ret
         end
     else # mark other intrinsic not pure to prevent inline
         return Core.Compiler.CallMeta(Const(nothing), nothing)

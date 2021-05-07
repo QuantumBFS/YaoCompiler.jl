@@ -231,7 +231,12 @@ end
             nothing
         end
     end
-    return finish(new)
+    code_info = finish(new)
+    if code_info.method_for_inference_limit_heuristics === nothing
+        method = first(methods(P, Args))
+        code_info.method_for_inference_limit_heuristics = method
+    end
+    return code_info
 end
 
 function _update_slot_stmt(f, new, v, stmt)
@@ -245,7 +250,7 @@ function _update_slot_stmt(f, new, v, stmt)
     end
 end
 
-@generated function Intrinsics.apply(::AbstractRegister, op::Operation, ::Locations)
+@generated function Intrinsics.apply(::AbstractRegister, op::Operation{P, Args}, ::Locations) where {P, Args}
     ci, nargs = obtain_codeinfo(op)
     new = NewCodeInfo(ci)
     register = insert!(new.slots, 2, Symbol("#register#"))
@@ -281,7 +286,12 @@ end
             end
         end
     end
-    return finish(new)
+    code_info = finish(new)
+    if code_info.method_for_inference_limit_heuristics === nothing
+        method = first(methods(P, Args))
+        code_info.method_for_inference_limit_heuristics = method
+    end
+    return code_info
 end
 
 @generated function Intrinsics.apply(::AbstractRegister, op::Operation, ::Locations, ::CtrlLocations)
@@ -321,7 +331,12 @@ end
             end
         end
     end
-    return finish(new)
+    code_info = finish(new)
+    if code_info.method_for_inference_limit_heuristics === nothing
+        method = first(methods(P, Args))
+        code_info.method_for_inference_limit_heuristics = method
+    end
+    return code_info
 end
 
 
