@@ -87,6 +87,7 @@ function codegen_routine(jlfn::JLFunction)
     return quote
         $(codegen_routine_type(jlfn, typename))
         $(codegen_operation(jlfn, typename))
+        $(codegen_inference_limit_heuristics(jlfn, typename))
         $(codegen_routine_stub(jlfn, typename))
         $(codegen_binding(jlfn, typename))
     end
@@ -126,6 +127,25 @@ function codegen_operation(def::JLFunction, typename)
         end,
     )
 
+    return codegen_ast(jlfn)
+end
+
+function inference_limit_heuristics end
+
+function codegen_inference_limit_heuristics(def::JLFunction, typename)
+    self = gensym(:self)
+    args = name_only.(def.args)
+
+    jlfn = JLFunction(;
+        name = :($YaoCompiler.inference_limit_heuristics),
+        args = [:($self::$typename), def.args...],
+        whereparams = def.whereparams,
+        rettype = def.rettype,
+        line = def.line,
+        body = quote
+            $YaoCompiler.Operation($self, $(xtuple(args...)))
+        end,
+    )
     return codegen_ast(jlfn)
 end
 
@@ -233,7 +253,7 @@ end
     end
     code_info = finish(new)
     if code_info.method_for_inference_limit_heuristics === nothing
-        method = first(methods(P, Args))
+        method = first(methods(inference_limit_heuristics, Tuple{P, Args.parameters...}))
         code_info.method_for_inference_limit_heuristics = method
     end
     return code_info
@@ -288,7 +308,7 @@ end
     end
     code_info = finish(new)
     if code_info.method_for_inference_limit_heuristics === nothing
-        method = first(methods(P, Args))
+        method = first(methods(inference_limit_heuristics, Tuple{P, Args.parameters...}))
         code_info.method_for_inference_limit_heuristics = method
     end
     return code_info
@@ -333,7 +353,7 @@ end
     end
     code_info = finish(new)
     if code_info.method_for_inference_limit_heuristics === nothing
-        method = first(methods(P, Args))
+        method = first(methods(inference_limit_heuristics, Tuple{P, Args.parameters...}))
         code_info.method_for_inference_limit_heuristics = method
     end
     return code_info
