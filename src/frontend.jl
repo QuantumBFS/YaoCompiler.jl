@@ -67,6 +67,7 @@ struct TranspileCtx
     m::Module
     source::LineNumberNode
     record::Any
+    returns::Dict{Symbol, Vector{Symbol}}
 end
 
 function transpile(m::Module, lino::LineNumberNode, ast::MainProgram)
@@ -76,7 +77,7 @@ function transpile(m::Module, lino::LineNumberNode, ast::MainProgram)
     body = Expr(:block)
     routines = []
     record = scan_registers(ast)
-    ctx = TranspileCtx(m, lino, record)
+    ctx = TranspileCtx(m, lino, record, Dict{Symbol, Vector{Any}}())
 
     for stmt in ast.prog
         if stmt isa RegDecl
@@ -104,10 +105,13 @@ function transpile(m::Module, lino::LineNumberNode, ast::MainProgram)
     # if there are classical registers
     # return them in a NamedTuple
     ret = Expr(:tuple)
-    for (k, r) in record.map
-        if r.type === :classical
-            name = Symbol(k)
-            push!(ret.args, Expr(:(=), name, name))
+    if !isempty(ctx.returns)
+        for (name, list) in ctx.returns
+            if length(list) == 1
+                push!(ret.args, Expr(:(=), name, list[1]))
+            else
+                push!(ret.args, Expr(:(=), name, Expr(:tuple, list...)))
+            end
         end
     end
 
@@ -136,7 +140,7 @@ function transpile(ctx::TranspileCtx, stmt::Gate)
     args = transpile_exp(ctx, stmt.decl.cargs)
     record = transpile_gate_registers(stmt.decl.qargs)
     body = Expr(:block)
-    new_ctx = TranspileCtx(ctx.m, ctx.source, record)
+    new_ctx = TranspileCtx(ctx.m, ctx.source, record, Dict{Symbol, Vector{Any}}())
 
     for each in stmt.body
         push!(body.args, transpile(new_ctx, each))
@@ -179,8 +183,16 @@ function transpile(ctx::TranspileCtx, stmt)
                 end
             end
 
-        @case Measure(qarg, carg)
-            :($(transpile(ctx, carg)) = measure($(transpile(ctx, qarg))))
+        # measure qreg -> creg
+        @case Measure(qarg, Bit(name, nothing))
+            ctx.returns[Symbol(name.str)] = Symbol[Symbol(name.str)]
+            :($(Symbol(name.str)) = measure($(transpile(ctx, qarg))))
+
+        @case Measure(qarg, Bit(name, address))
+            ret = get!(ctx.returns, Symbol(name.str), Symbol[])
+            name = Symbol(name.str, "_", transpile(ctx, address) + 1)
+            push!(ret, name)
+            :($name = measure($(transpile(ctx, qarg))))
 
         @case Barrier(qargs)
             :(barrier($(transpile_qargs(ctx, qargs))))

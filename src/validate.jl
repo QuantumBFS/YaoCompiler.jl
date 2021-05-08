@@ -53,6 +53,8 @@ function validate(target::OpenQASMTarget, ci::CodeInfo)
                 mi.def.module === Base.Math || error("invalid function: $(mi.def.module).sqrt")
             @case ::ReturnNode
             @case ::GotoIfNot
+            # packed cargs
+            @case Expr(:call, GlobalRef(&Core, :tuple), _...)
 
             # gate statements
             @case Expr(:call, GlobalRef(&Base, :getfield), Argument(3), QuoteNode(:args))
