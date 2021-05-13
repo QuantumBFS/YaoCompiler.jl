@@ -235,7 +235,7 @@ function transpile_gate_syntax(ex)
     end
 end
 
-@generated function Intrinsics.apply(::AbstractRegister, op::Operation{P, Args}) where {P, Args}
+@generated function Intrinsics.apply(::AbstractRegister, op::Operation{P,Args}) where {P,Args}
     ci, nargs = obtain_codeinfo(op)
     new = NewCodeInfo(ci)
     register = insert!(new.slots, 2, Symbol("#register#"))
@@ -253,7 +253,7 @@ end
     end
     code_info = finish(new)
     if code_info.method_for_inference_limit_heuristics === nothing
-        method = first(methods(inference_limit_heuristics, Tuple{P, Args.parameters...}))
+        method = first(methods(inference_limit_heuristics, Tuple{P,Args.parameters...}))
         code_info.method_for_inference_limit_heuristics = method
     end
     return code_info
@@ -270,7 +270,11 @@ function _update_slot_stmt(f, new, v, stmt)
     end
 end
 
-@generated function Intrinsics.apply(::AbstractRegister, op::Operation{P, Args}, ::Locations) where {P, Args}
+@generated function Intrinsics.apply(
+    ::AbstractRegister,
+    op::Operation{P,Args},
+    ::Locations,
+) where {P,Args}
     ci, nargs = obtain_codeinfo(op)
     new = NewCodeInfo(ci)
     register = insert!(new.slots, 2, Symbol("#register#"))
@@ -308,13 +312,18 @@ end
     end
     code_info = finish(new)
     if code_info.method_for_inference_limit_heuristics === nothing
-        method = first(methods(inference_limit_heuristics, Tuple{P, Args.parameters...}))
+        method = first(methods(inference_limit_heuristics, Tuple{P,Args.parameters...}))
         code_info.method_for_inference_limit_heuristics = method
     end
     return code_info
 end
 
-@generated function Intrinsics.apply(::AbstractRegister, op::Operation{P, Args}, ::Locations, ::CtrlLocations) where {P, Args}
+@generated function Intrinsics.apply(
+    ::AbstractRegister,
+    op::Operation{P,Args},
+    ::Locations,
+    ::CtrlLocations,
+) where {P,Args}
     ci, nargs = obtain_codeinfo(op)
     new = NewCodeInfo(ci)
     register = insert!(new.slots, 2, Symbol("#register#"))
@@ -353,7 +362,7 @@ end
     end
     code_info = finish(new)
     if code_info.method_for_inference_limit_heuristics === nothing
-        method = first(methods(inference_limit_heuristics, Tuple{P, Args.parameters...}))
+        method = first(methods(inference_limit_heuristics, Tuple{P,Args.parameters...}))
         code_info.method_for_inference_limit_heuristics = method
     end
     return code_info
