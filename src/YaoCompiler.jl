@@ -32,6 +32,7 @@ using MLStyle
 using YaoAPI
 using LLVM
 using Expronicon
+using YaoHIR
 using YaoLocations
 using TimerOutputs
 using LinearAlgebra
@@ -39,6 +40,7 @@ using GPUCompiler
 using Configurations
 using CompilerPluginTools
 using LLVM.Interop
+using YaoHIR: routine_name, measure_cmp, MeasureResult
 using GPUCompiler: CodeCache, CompilerJob, AbstractCompilerTarget, AbstractCompilerParams, WorldView
 using YaoLocations: map_check, map_check_nothrow, map_error, plain, unsafe_mapping
 using CompilerPluginTools: Argument
@@ -59,8 +61,6 @@ A place holder for registers when compilation is not register specific.
 struct AnyReg <: AbstractRegister{1} end
 Base.show(io::IO, ::AnyReg) = print(io, "AnyReg()")
 
-include("compiler/types.jl")
-include("compiler/printing.jl")
 include("compiler/intrinsics.jl")
 include("compiler/syntax.jl")
 include("compiler/interp.jl")
@@ -87,7 +87,10 @@ function __init__()
     tm[] = LLVM.JITTargetMachine(; optlevel = optlevel)
     LLVM.asm_verbosity!(tm[], true)
 
-    orc[] = LLVM.OrcJIT(tm[]) # takes ownership of tm
+    if LLVM.has_orc_v1()
+        orc[] = LLVM.OrcJIT(tm[]) # takes ownership of tm
+    end
+
     atexit() do
         return LLVM.dispose(orc[])
     end

@@ -18,7 +18,7 @@ show(buf, MIME"text/plain"(), test_intrinsic)
 @test occursin("test_intrinsic (generic routine with 1 methods)", String(take!(buf)))
 
 show(buf, MIME"text/plain"(), X)
-@test occursin("XGate (intrinsic operation)", String(take!(buf)))
+@test occursin("X (intrinsic operation)", String(take!(buf)))
 
 show(buf, MIME"text/plain"(), Rx(2.0))
 @test occursin("Rx(2.0) (intrinsic operation)", String(take!(buf)))
