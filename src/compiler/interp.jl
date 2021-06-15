@@ -294,7 +294,7 @@ function run_pure_quantum_passes(f, ir::IRCode)
     compact = IncrementalCompact(ir, true)
     for b in compute_quantum_blocks(ir)
         circuit = Chain()
-        first_terminator = nothing
+
         for v in b
             e = ir.stmts[v][:inst]
             @switch e begin
@@ -302,31 +302,52 @@ function run_pure_quantum_passes(f, ir::IRCode)
                     push!(circuit.args, Gate(_unquote(op), _unquote(locs)))
                 @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, op, locs, ctrl)
                     push!(circuit.args, Ctrl(Gate(_unquote(op), _unquote(locs)), _unquote(ctrl)))
-                @case _
-                    f(BlockIR(ir, n, circuit))
+                @case _ # don't process measure etc.
+                    break
             end
         end
-    end
-end
 
-function foreach_quantum_block(f, ir::IRCode)
-    for b in ir.cfg.blocks
-        circuit = Chain()
-        for v in b.stmts
+        circuit = f(BlockIR(ir, n, circuit))::BlockIR
+
+        first_terminator = nothing
+        for v in b
             e = ir.stmts[v][:inst]
-
             @switch e begin
-                @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, op, locs)
-                    push!(circuit.args, Gate(_unquote(op), _unquote(locs)))
-                @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, op, locs, ctrl)
-                    push!(circuit.args, Ctrl(Gate(_unquote(op), _unquote(locs)), _unquote(ctrl)))
-
-                @case _
-                    circuit = f(circuit)
-
+                @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, op, locs) ||
+                Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, op, locs, ctrl)
+                    compact[v] = nothing
+                @case _ # don't process measure etc.
+                    first_terminator = v
+                    break
             end
         end
+
+        # pure quantum block without measure/barrier
+        if isnothing(first_terminator)
+            first_terminator = last(b) + 1
+        end
+
+        first_terminator = first_terminator::Int
+
+        for each in YaoHIR.leaves(circuit)
+            @switch each begin
+                @case Gate(op, locs)
+                    mi = specialize_apply(reg, op, locs)
+                    e = Expr(:invoke, mi, Intrinsics.apply, reg, op, locs)
+                @case Ctrl(Gate(op, locs), ctrl)
+                    mi = specialize_apply(reg, op, locs, ctrl)
+                    e = Expr(:invoke, mi, Intrinsics.apply, reg, op, locs, ctrl)
+                @case _
+                    error("invalid statement: $each")
+            end
+
+            Core.Compiler.insert_node!(compact, SSAValue(first_terminator), Nothing, e)
+        end
     end
+
+    for _ in compact; end
+    new = Core.Compiler.finish(compact)
+    return new
 end
 
 _unquote(x::QuoteNode) = x.value
