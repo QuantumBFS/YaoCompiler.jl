@@ -309,6 +309,8 @@ function run_pure_quantum_passes(f, ir::IRCode)
 
         circuit = f(BlockIR(ir, n, circuit))::BlockIR
 
+        reg = Argument(2)
+        reg_type = ir.argtypes[2]
         first_terminator = nothing
         for v in b
             e = ir.stmts[v][:inst]
@@ -332,10 +334,10 @@ function run_pure_quantum_passes(f, ir::IRCode)
         for each in YaoHIR.leaves(circuit)
             @switch each begin
                 @case Gate(op, locs)
-                    mi = specialize_apply(reg, op, locs)
+                    mi = specialize_apply(reg_type, op, locs)
                     e = Expr(:invoke, mi, Intrinsics.apply, reg, op, locs)
                 @case Ctrl(Gate(op, locs), ctrl)
-                    mi = specialize_apply(reg, op, locs, ctrl)
+                    mi = specialize_apply(reg_type, op, locs, ctrl)
                     e = Expr(:invoke, mi, Intrinsics.apply, reg, op, locs, ctrl)
                 @case _
                     error("invalid statement: $each")
@@ -352,3 +354,9 @@ end
 
 _unquote(x::QuoteNode) = x.value
 _unquote(x) = x
+
+function specialize_apply(reg_type, op, locs)
+end
+
+function specialize_apply(reg_type, op, locs, ctrl)
+end
