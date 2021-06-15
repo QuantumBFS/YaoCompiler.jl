@@ -30,6 +30,12 @@ end
 
 ci, type = @yao_code_typed(test_pure_quantum())[1]
 
+@device function routine2(theta)
+    2 => Rx(theta)
+end
+
+ci, type = @yao_code_typed(routine2(2.0))[1]
+
 op = test_pure_quantum()
 interp = YaoInterpreter()
 ci, type = @yao_code_typed(op)[1]

@@ -248,3 +248,86 @@ function exit_block!(perms::Vector, cstmts_tape::Vector, qstmts_tape::Vector)
     empty!(qstmts_tape)
     return perms
 end
+
+function compute_quantum_blocks(ir::IRCode)
+    quantum_blocks = UnitRange{Int}[]
+
+    for b in ir.cfg.blocks
+        start, stop = 0, 0
+        for v in b.stmts
+            st = ir.stmts[v][:inst]
+
+            @switch st begin
+                @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), _...) ||
+                    Expr(:invoke, _, GlobalRef(Intrinsic, :measure)) ||
+                    Expr(:invoke, _, GlobalRef(Intrinsic, :barrier)) ||
+                    Expr(:invoke, _, GlobalRef(Intrinsic, :expect))
+
+                    if start > 0
+                        stop += 1
+                    else
+                        start = stop = v
+                    end
+                @case _
+                    if start > 0
+                        push!(quantum_blocks, start:stop)
+                        start = stop = 0
+                    end
+            end
+
+        end
+
+        if start > 0
+            push!(quantum_blocks, start:stop)
+        end
+    end
+    return quantum_blocks
+end
+
+function run_pure_quantum_passes(f, ir::IRCode)
+    n = count_qubits(ir)
+    # NOTE: we can't optimize
+    # non-constant location program
+    isnothing(n) && return ir
+    iszero(n) && return ir
+
+    compact = IncrementalCompact(ir, true)
+    for b in compute_quantum_blocks(ir)
+        circuit = Chain()
+        first_terminator = nothing
+        for v in b
+            e = ir.stmts[v][:inst]
+            @switch e begin
+                @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, op, locs)
+                    push!(circuit.args, Gate(_unquote(op), _unquote(locs)))
+                @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, op, locs, ctrl)
+                    push!(circuit.args, Ctrl(Gate(_unquote(op), _unquote(locs)), _unquote(ctrl)))
+                @case _
+                    f(BlockIR(ir, n, circuit))
+            end
+        end
+    end
+end
+
+function foreach_quantum_block(f, ir::IRCode)
+    for b in ir.cfg.blocks
+        circuit = Chain()
+        for v in b.stmts
+            e = ir.stmts[v][:inst]
+
+            @switch e begin
+                @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, op, locs)
+                    push!(circuit.args, Gate(_unquote(op), _unquote(locs)))
+                @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, op, locs, ctrl)
+                    push!(circuit.args, Ctrl(Gate(_unquote(op), _unquote(locs)), _unquote(ctrl)))
+
+                @case _
+                    circuit = f(circuit)
+
+            end
+        end
+    end
+end
+
+_unquote(x::QuoteNode) = x.value
+_unquote(x) = x
