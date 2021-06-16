@@ -37,6 +37,7 @@ using YaoLocations
 using TimerOutputs
 using LinearAlgebra
 using GPUCompiler
+using ZXCalculus
 using Configurations
 using CompilerPluginTools
 using LLVM.Interop
