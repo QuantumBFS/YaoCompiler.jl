@@ -186,15 +186,16 @@ function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
     end
 
     # target agnoistic
-    run_pure_quantum_passes(ir) do block_ir::BlockIR
-        if interp.options.phase_teleportation
-            block_ir = phase_teleportation(block_ir)
+    if interp.options.phase_teleportation
+        ir = run_pure_quantum_passes(ir) do block_ir::BlockIR
+            phase_teleportation(block_ir)
         end
+    end
     
-        if interp.options.clifford_simplification
-            block_ir = clifford_simplification(block_ir)
+    if interp.options.clifford_simplification
+        ir = run_pure_quantum_passes(ir) do block_ir::BlockIR
+            clifford_simplification(block_ir)
         end
-        return block_ir
     end
 
     ir = target_specific_pipeline(interp.target, ir)
