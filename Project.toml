@@ -14,7 +14,7 @@ YaoLocations = "66df03fb-d475-48f7-b449-3d9064bf085b"
 
 [compat]
 CompilerPluginTools = "0.1"
-Configurations = "0.15"
+Configurations = "0.15, 0.16"
 IBMQClient = "0.3"
 MLStyle = "0.4"
 YaoCompiler = "0.1"
