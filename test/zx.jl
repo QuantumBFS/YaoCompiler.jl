@@ -6,27 +6,21 @@ using YaoCompiler
 using GPUCompiler
 using YaoCompiler.Intrinsics
 using CompilerPluginTools
+using YaoHIR
+using ZXCalculus
 
-@device function test_a()
+@operation function test_a()
     1 => X
     1 => X
 end
 
-interp = YaoInterpreter(;options=HardwareFreeOptions(;clifford_simplification=true, phase_teleportation=false))
-code_ircode(Intrinsics.apply, (AnyReg, typeof(test_a())); interp)
+interp = YaoInterpreter(;options=HardwareFreeOptions(;
+        clifford_simplification=true, phase_teleportation=false
+    )
+)
 
-using ZXCalculus
-
-zxd = ZXDiagram(1)
-push_gate!(zxd, Val(:X), 1)
-push_gate!(zxd, Val(:X), 1)
-clifford_simplification(zxd)
-convert_to_chain(zxd)
-
-
-function test_b()
-    function (r)
-        apply!(r, X, 1)
-        apply!(r, X, 2)
-    end
+ir, = code_typed(Intrinsics.apply, (AnyReg, typeof(test_a())); interp)[1]
+@test_codeinfo ir begin
+    Expr(:invoke, _, apply, _, &(QuoteNode(H)), &(QuoteNode(Locations(1))))::Nothing
+    Expr(:invoke, _, apply, _, &(QuoteNode(H)), &(QuoteNode(Locations(1))))::Nothing
 end

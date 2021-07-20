@@ -12,3 +12,7 @@ end
 @testset "printing" begin
     include("printing.jl")
 end
+
+@testset "zx optimization" begin
+    include("zx.jl")
+end

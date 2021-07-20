@@ -301,7 +301,6 @@ function compute_quantum_blocks(ir::IRCode)
 end
 
 function quote_globalref_gate(ir::IRCode, quantum_blocks=compute_quantum_blocks(ir))
-    @show ir
     for b in quantum_blocks, v in b
         @switch ir.stmts[v][:inst] begin
             @case Expr(:invoke, mi, &(GlobalRef(Intrinsics, :apply)), reg, op, args...)
