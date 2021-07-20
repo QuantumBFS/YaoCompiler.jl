@@ -107,7 +107,7 @@ end
 
 ir, = code_typed(Intrinsics.apply, (AnyReg, typeof(test_cir())); interp)[1]
 
-include("test/emulate.jl")
+# include("test/emulate.jl")
 
 r = rand_state(5)
 cir = test_cir()
