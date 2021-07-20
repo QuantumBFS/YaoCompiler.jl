@@ -4,11 +4,11 @@ xctrl_locations(ex) = Expr(:call, :($YaoLocations.CtrlLocations), ex)
 """
     @gate <locs> => <gate>
 
-Syntax sugar for `apply(gate, locs)`, must be used inside `@device`.
-See also [`@device`](@ref).
+Syntax sugar for `apply(gate, locs)`, must be used inside `@operation`.
+See also [`@operation`](@ref).
 
 !!! tips
-    You don't have to write `@gate` in most cases inside `@device`.
+    You don't have to write `@gate` in most cases inside `@operation`.
     But in case there is ambuigity, you can annotate the expression
     with `@gate` explicitly.
 """
@@ -22,8 +22,8 @@ end
 """
     @ctrl <ctrl_locs> <locs> => <gate>
 
-Syntax sugar for `apply(gate, locs, ctrl_locs)`, must be used inside `@device`.
-See also [`@device`](@ref).
+Syntax sugar for `apply(gate, locs, ctrl_locs)`, must be used inside `@operation`.
+See also [`@operation`](@ref).
 """
 macro ctrl(ctrl_locs, ex::Expr)
     @match ex begin
@@ -53,12 +53,12 @@ macro barrier(locs)
 end
 
 """
-    @device <function def>
+    @operation <function def>
 
-Annotate a Julia function as YaoLang device kernel.
+Annotate a Julia function as YaoLang operation kernel.
 """
-macro device(ex)
-    esc(device_m(__module__, ex))
+macro operation(ex)
+    esc(operation_m(__module__, ex))
 end
 
 """
@@ -71,7 +71,7 @@ on them directly.
 """
 function routine_stub end
 
-function device_m(mod::Module, ex)
+function operation_m(mod::Module, ex)
     is_function(ex) || error("expect a function definition")
     jlfn = JLFunction(ex)
     isnothing(jlfn.kwargs) || error("kwargs is not supported")
@@ -207,17 +207,17 @@ function transpile_gate_syntax(ex)
         :($locs => $gate) => xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs))
         # this will appear in anonymous function definition
         # TODO: disambuigity this and function contains only single line
-        # @device function circuit(theta, phi)
+        # @operation function circuit(theta, phi)
         #     1 => X
         # end
         # Expr(:block, stmt1, line::LineNumberNode, stmt2) => ex
-        Expr(:macrocall, Symbol("@device"), _...) => error("syntax: cannot have nested @device")
+        Expr(:macrocall, Symbol("@operation"), _...) => error("syntax: cannot have nested @operation")
         Expr(:macrocall, name, args...) => begin
             if is_syntax_macro(name)
                 return ex
             else
                 # we force top scope locs=>gate to be treated as gate stmt inside
-                # all @device region including non-YaoCompiler macros to make things
+                # all @operation region including non-YaoCompiler macros to make things
                 # like @inbounds etc. work
                 return Expr(:macrocall, name, map(transpile_gate_syntax, args)...)
             end

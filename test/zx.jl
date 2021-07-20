@@ -22,3 +22,11 @@ push_gate!(zxd, Val(:X), 1)
 push_gate!(zxd, Val(:X), 1)
 clifford_simplification(zxd)
 convert_to_chain(zxd)
+
+
+function test_b()
+    function (r)
+        apply!(r, X, 1)
+        apply!(r, X, 2)
+    end
+end

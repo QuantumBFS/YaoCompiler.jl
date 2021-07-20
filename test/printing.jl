@@ -4,7 +4,7 @@ using YaoLocations
 using YaoArrayRegister
 using YaoCompiler.Intrinsics
 
-@device function test_intrinsic(theta, phi)
+@operation function test_intrinsic(theta, phi)
     # syntax sugar
     1 => X
     @gate 2 => Z

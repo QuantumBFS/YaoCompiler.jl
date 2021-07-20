@@ -53,7 +53,7 @@ end
     return MeasureResult{typeof(result)}(result)
 end
 
-@device function test_intrinsic(theta, phi)
+@operation function test_intrinsic(theta, phi)
     # syntax sugar
     1 => X
     @gate 2 => Z
@@ -62,7 +62,7 @@ end
     return
 end
 
-@device function test_location_map(theta)
+@operation function test_location_map(theta)
     3:6 => test_intrinsic(theta, 2.5)
     @ctrl 1 3:6 => test_intrinsic(theta, 2.1)
     return
