@@ -1,6 +1,7 @@
 using Test
 using YaoCompiler
 using YaoLocations
+using LinearAlgebra
 using YaoArrayRegister
 using YaoCompiler.Intrinsics
 
@@ -46,6 +47,10 @@ for axis in [:x, :y, :z]
         instruct!(r, Val($(QuoteNode(Symbol(:R, axis)))), Tuple(locs), ctrl_locs, ctrl_configs, op.θ)
         return
     end
+end
+
+function Intrinsics.apply(r::ArrayReg, op::Intrinsics.shift, locs::Locations)
+    instruct!(r, Diagonal(ComplexF64[1.0, exp(im * op.θ)]), Tuple(locs))
 end
 
 @noinline function Intrinsics.measure(r::ArrayReg, locs::Locations)
