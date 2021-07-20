@@ -185,6 +185,7 @@ function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
         ir = group_quantum_stmts!(ir)
     end
 
+    # ir = quote_globalref_gate(ir)
     # target agnoistic
     if interp.options.phase_teleportation
         ir = run_pure_quantum_passes(ir) do block_ir::BlockIR
@@ -220,9 +221,9 @@ function group_quantum_stmts_perm(ir::IRCode)
             e = ir.stmts[v][:inst]
             @switch e begin
                 # terminator
-                @case Expr(:invoke, _, GlobalRef(Intrinsics, :measure), args...) ||
-                      Expr(:invoke, _, GlobalRef(Intrinsics, :expect), args...) ||
-                      Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), args...)
+                @case Expr(:invoke, _, GlobalRef(Intrinsics, :measure), _...) ||
+                      Expr(:invoke, _, GlobalRef(Intrinsics, :expect), _...) ||
+                      Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), _...)
 
                 exit_block!(perms, cstmts_tape, qstmts_tape)
                 push!(perms, v)
@@ -297,6 +298,19 @@ function compute_quantum_blocks(ir::IRCode)
         end
     end
     return quantum_blocks
+end
+
+function quote_globalref_gate(ir::IRCode, quantum_blocks=compute_quantum_blocks(ir))
+    @show ir
+    for b in quantum_blocks, v in b
+        @switch ir.stmts[v][:inst] begin
+            @case Expr(:invoke, mi, &(GlobalRef(Intrinsics, :apply)), reg, op, args...)
+                ir.stmts[v][:inst] = Expr(:invoke, mi, GlobalRef(Intrinsics, :apply), reg, CompilerPluginTools.eval_global(op), args...)
+            @case _
+                nothing
+        end
+    end
+    return ir
 end
 
 function run_pure_quantum_passes(f, ir::IRCode, quantum_blocks=compute_quantum_blocks(ir))

@@ -24,7 +24,8 @@ export main, apply, measure, barrier, expect
 @intrinsic_stub device barrier(::Locations)
 @intrinsic_stub device expect(::Locations, nshots::Int)
 
-using YaoHIR: X, Y, Z, H, S, T, SWAP, shift, Rx, Ry, Rz, UGate
+using YaoHIR.IntrinsicOperation
+
 export X, Y, Z, H, S, T, SWAP, shift, Rx, Ry, Rz, UGate
 
 end
