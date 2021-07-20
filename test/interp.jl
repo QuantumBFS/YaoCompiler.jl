@@ -8,7 +8,7 @@ using YaoCompiler.Intrinsics
 using CompilerPluginTools
 using YaoCompiler.Intrinsics: measure
 
-@device function test_basic(theta, phi)
+@operation function test_basic(theta, phi)
     # syntax sugar
     1 => X
     @gate 2 => Z
@@ -22,13 +22,19 @@ using YaoCompiler.Intrinsics: measure
     return (a = a, b = c)
 end
 
-@device function test_pure_quantum()
+@operation function test_pure_quantum()
     ret = @gate 1:4 => test_basic(1.0, 2.0)
     @ctrl 2 1 => Rx(2.2)
     return ret
 end
 
 ci, type = @yao_code_typed(test_pure_quantum())[1]
+
+@operation function routine2(theta)
+    2 => Rx(theta)
+end
+
+ci, type = @yao_code_typed(routine2(2.0))[1]
 
 op = test_pure_quantum()
 interp = YaoInterpreter()

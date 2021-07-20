@@ -1,6 +1,6 @@
 module YaoCompiler
 
-export @device,
+export @operation,
     @gate,
     @ctrl,
     @measure,
@@ -37,10 +37,11 @@ using YaoLocations
 using TimerOutputs
 using LinearAlgebra
 using GPUCompiler
+using ZXCalculus
 using Configurations
 using CompilerPluginTools
 using LLVM.Interop
-using YaoHIR: routine_name, measure_cmp, MeasureResult
+using YaoHIR: routine_name, measure_cmp, MeasureResult, Typed
 using GPUCompiler: CodeCache, CompilerJob, AbstractCompilerTarget, AbstractCompilerParams, WorldView
 using YaoLocations: map_check, map_check_nothrow, map_error, plain, unsafe_mapping
 using CompilerPluginTools: Argument

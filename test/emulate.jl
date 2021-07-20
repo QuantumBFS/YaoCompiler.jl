@@ -1,6 +1,7 @@
 using Test
 using YaoCompiler
 using YaoLocations
+using LinearAlgebra
 using YaoArrayRegister
 using YaoCompiler.Intrinsics
 
@@ -48,12 +49,16 @@ for axis in [:x, :y, :z]
     end
 end
 
+function Intrinsics.apply(r::ArrayReg, op::Intrinsics.shift, locs::Locations)
+    instruct!(r, Diagonal(ComplexF64[1.0, exp(im * op.θ)]), Tuple(locs))
+end
+
 @noinline function Intrinsics.measure(r::ArrayReg, locs::Locations)
     result = YaoArrayRegister.measure!(r, Tuple(locs))
     return MeasureResult{typeof(result)}(result)
 end
 
-@device function test_intrinsic(theta, phi)
+@operation function test_intrinsic(theta, phi)
     # syntax sugar
     1 => X
     @gate 2 => Z
@@ -62,7 +67,7 @@ end
     return
 end
 
-@device function test_location_map(theta)
+@operation function test_location_map(theta)
     3:6 => test_intrinsic(theta, 2.5)
     @ctrl 1 3:6 => test_intrinsic(theta, 2.1)
     return
