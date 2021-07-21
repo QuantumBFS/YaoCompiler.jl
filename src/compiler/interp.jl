@@ -192,7 +192,7 @@ function CompilerPluginTools.optimize(interp::YaoInterpreter, ir::IRCode)
             phase_teleportation(block_ir)
         end
     end
-    
+
     if interp.options.clifford_simplification
         ir = run_pure_quantum_passes(ir) do block_ir::BlockIR
             clifford_simplification(block_ir)
@@ -267,28 +267,28 @@ function compute_quantum_blocks(ir::IRCode)
 
             @switch st begin
                 @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), _...)
-                    if start > 0
-                        stop += 1
-                    else
-                        start = stop = v
-                    end
+                if start > 0
+                    stop += 1
+                else
+                    start = stop = v
+                end
                 # quantum terminator
                 @case Expr(:invoke, _, GlobalRef(Intrinsic, :measure), _...) ||
-                    Expr(:invoke, _, GlobalRef(Intrinsic, :barrier), _...) ||
-                    Expr(:invoke, _, GlobalRef(Intrinsic, :expect), _...)
+                      Expr(:invoke, _, GlobalRef(Intrinsic, :barrier), _...) ||
+                      Expr(:invoke, _, GlobalRef(Intrinsic, :expect), _...)
 
-                    if start > 0
-                        push!(quantum_blocks, start:stop+1)
-                    else
-                        push!(quantum_blocks, v:v)
-                    end
-                    start = stop = 0
+                if start > 0
+                    push!(quantum_blocks, start:stop+1)
+                else
+                    push!(quantum_blocks, v:v)
+                end
+                start = stop = 0
                 # classical terminator
                 @case _
-                    if start > 0
-                        push!(quantum_blocks, start:stop)
-                        start = stop = 0
-                    end
+                if start > 0
+                    push!(quantum_blocks, start:stop)
+                    start = stop = 0
+                end
             end
 
         end
@@ -300,19 +300,26 @@ function compute_quantum_blocks(ir::IRCode)
     return quantum_blocks
 end
 
-function quote_globalref_gate(ir::IRCode, quantum_blocks=compute_quantum_blocks(ir))
+function quote_globalref_gate(ir::IRCode, quantum_blocks = compute_quantum_blocks(ir))
     for b in quantum_blocks, v in b
         @switch ir.stmts[v][:inst] begin
             @case Expr(:invoke, mi, &(GlobalRef(Intrinsics, :apply)), reg, op, args...)
-                ir.stmts[v][:inst] = Expr(:invoke, mi, GlobalRef(Intrinsics, :apply), reg, CompilerPluginTools.eval_global(op), args...)
+            ir.stmts[v][:inst] = Expr(
+                :invoke,
+                mi,
+                GlobalRef(Intrinsics, :apply),
+                reg,
+                CompilerPluginTools.eval_global(op),
+                args...,
+            )
             @case _
-                nothing
+            nothing
         end
     end
     return ir
 end
 
-function run_pure_quantum_passes(f, ir::IRCode, quantum_blocks=compute_quantum_blocks(ir))
+function run_pure_quantum_passes(f, ir::IRCode, quantum_blocks = compute_quantum_blocks(ir))
     n = count_qubits(ir, quantum_blocks)
     # NOTE: we can't optimize
     # non-constant location program
@@ -327,28 +334,58 @@ function run_pure_quantum_passes(f, ir::IRCode, quantum_blocks=compute_quantum_b
             e = ir.stmts[v][:inst]
             @switch e begin
                 # constant case
-                @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, QuoteNode(op), QuoteNode(locs))
-                    push!(circuit.args, Gate(op, locs))
-                @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, QuoteNode(op), QuoteNode(locs), QuoteNode(ctrl))
-                    push!(circuit.args, Ctrl(Gate(op, locs), ctrl))
+                @case Expr(
+                    :invoke,
+                    _,
+                    GlobalRef(Intrinsics, :apply),
+                    reg,
+                    QuoteNode(op),
+                    QuoteNode(locs),
+                )
+                push!(circuit.args, Gate(op, locs))
+                @case Expr(
+                    :invoke,
+                    _,
+                    GlobalRef(Intrinsics, :apply),
+                    reg,
+                    QuoteNode(op),
+                    QuoteNode(locs),
+                    QuoteNode(ctrl),
+                )
+                push!(circuit.args, Ctrl(Gate(op, locs), ctrl))
 
                 # gate operator is not constant
-                @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, op::SSAValue, QuoteNode(locs))
-                    op_type = ir.stmts[op.id][:type]
-                    push!(circuit.args, Gate(Typed(op, op_type), locs))
-                @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, op::SSAValue, QuoteNode(locs), QuoteNode(ctrl))
-                    op_type = ir.stmts[op.id][:type]
-                    push!(circuit.args, Ctrl(Gate(Typed(op, op_type), locs), ctrl))
+                @case Expr(
+                    :invoke,
+                    _,
+                    GlobalRef(Intrinsics, :apply),
+                    reg,
+                    op::SSAValue,
+                    QuoteNode(locs),
+                )
+                op_type = ir.stmts[op.id][:type]
+                push!(circuit.args, Gate(Typed(op, op_type), locs))
+                @case Expr(
+                    :invoke,
+                    _,
+                    GlobalRef(Intrinsics, :apply),
+                    reg,
+                    op::SSAValue,
+                    QuoteNode(locs),
+                    QuoteNode(ctrl),
+                )
+                op_type = ir.stmts[op.id][:type]
+                push!(circuit.args, Ctrl(Gate(Typed(op, op_type), locs), ctrl))
 
                 # terminators
                 @case Expr(:invoke, _, GlobalRef(Intrinsics, :measure), _, ::QuoteNode) ||
-                    Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), _, ::QuoteNode) ||
-                    Expr(:invoke, _, GlobalRef(Intrinsics, :expect), _, ::QuoteNode)
-                    break
+                      Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), _, ::QuoteNode) ||
+                      Expr(:invoke, _, GlobalRef(Intrinsics, :expect), _, ::QuoteNode)
+                break
 
                 # not pure quantum anymore
                 @case _
-                    return ir
+                return ir
             end
         end
 
@@ -362,11 +399,11 @@ function run_pure_quantum_passes(f, ir::IRCode, quantum_blocks=compute_quantum_b
             e = ir.stmts[v][:inst]
             @switch e begin
                 @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, op, locs) ||
-                Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, op, locs, ctrl)
-                    compact[v] = nothing
+                      Expr(:invoke, _, GlobalRef(Intrinsics, :apply), reg, op, locs, ctrl)
+                compact[v] = nothing
                 @case _ # don't process measure etc.
-                    first_terminator = v
-                    break
+                first_terminator = v
+                break
             end
         end
 
@@ -384,68 +421,77 @@ function run_pure_quantum_passes(f, ir::IRCode, quantum_blocks=compute_quantum_b
         for each in YaoHIR.leaves(block_ir.circuit)
             @switch each begin
                 @case Gate(op::IntrinsicRoutine, locs::Locations)
-                    mi = specialize_apply(reg_type, typeof(op), typeof(locs))
-                    e = Expr(:invoke, mi, Intrinsics.apply, reg, QuoteNode(op), QuoteNode(locs))
+                mi = specialize_apply(reg_type, typeof(op), typeof(locs))
+                e = Expr(:invoke, mi, Intrinsics.apply, reg, QuoteNode(op), QuoteNode(locs))
                 @case Ctrl(Gate(op::IntrinsicRoutine, locs::Locations), ctrl::CtrlLocations)
-                    mi = specialize_apply(reg_type, typeof(op), typeof(locs), typeof(ctrl))
-                    e = Expr(:invoke, mi, Intrinsics.apply, reg, QuoteNode(op), QuoteNode(locs), QuoteNode(ctrl))
+                mi = specialize_apply(reg_type, typeof(op), typeof(locs), typeof(ctrl))
+                e = Expr(
+                    :invoke,
+                    mi,
+                    Intrinsics.apply,
+                    reg,
+                    QuoteNode(op),
+                    QuoteNode(locs),
+                    QuoteNode(ctrl),
+                )
                 @case Gate(Typed(op::SSAValue, op_type), locs::Locations)
-                    mi = specialize_apply(reg_type, op_type, typeof(locs))
-                    e = Expr(:invoke, mi, Intrinsics.apply, reg, op, QuoteNode(locs))
+                mi = specialize_apply(reg_type, op_type, typeof(locs))
+                e = Expr(:invoke, mi, Intrinsics.apply, reg, op, QuoteNode(locs))
                 @case Ctrl(Gate(Typed(op::SSAValue, op_type), locs::Locations), ctrl::CtrlLocations)
-                    mi = specialize_apply(reg_type, op_type, typeof(locs), typeof(ctrl))
-                    e = Expr(:invoke, mi, Intrinsics.apply, reg, op, QuoteNode(locs), QuoteNode(ctrl))
+                mi = specialize_apply(reg_type, op_type, typeof(locs), typeof(ctrl))
+                e = Expr(:invoke, mi, Intrinsics.apply, reg, op, QuoteNode(locs), QuoteNode(ctrl))
                 @case _
-                    error("invalid statement: $each")
+                error("invalid statement: $each")
             end
 
             Core.Compiler.insert_node!(compact, SSAValue(first_terminator), Nothing, e)
         end
     end
 
-    for _ in compact; end
+    for _ in compact
+    end
     new = Core.Compiler.finish(compact)
     return new
 end
 
-function count_qubits(ir::IRCode, quantum_blocks=compute_quantum_blocks(ir))
+function count_qubits(ir::IRCode, quantum_blocks = compute_quantum_blocks(ir))
     locations = Set{Locations{Int}}()
 
     for b in quantum_blocks, v in b
         e = ir.stmts[v][:inst]
         @switch e begin
             @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), _, _, locs)
-                locs isa QuoteNode || return
-                union!(locations, collect(locs.value))
+            locs isa QuoteNode || return
+            union!(locations, collect(locs.value))
             @case Expr(:invoke, _, GlobalRef(Intrinsics, :apply), _, _, locs, ctrl)
-                locs isa QuoteNode || return
-                ctrl isa QuoteNode || return
-                union!(locations, collect(locs.value))
-                union!(locations, collect(ctrl.value.storage))
+            locs isa QuoteNode || return
+            ctrl isa QuoteNode || return
+            union!(locations, collect(locs.value))
+            union!(locations, collect(ctrl.value.storage))
             @case Expr(:invoke, _, GlobalRef(Intrinsics, :measure), _, locs)
-                locs isa QuoteNode || return
-                union!(locations, collect(locs.value))
+            locs isa QuoteNode || return
+            union!(locations, collect(locs.value))
             @case Expr(:invoke, _, GlobalRef(Intrinsics, :barrier), _, locs)
-                locs isa QuoteNode || return
-                union!(locations, collect(locs.value))
+            locs isa QuoteNode || return
+            union!(locations, collect(locs.value))
             @case Expr(:invoke, _, GlobalRef(Intrinsics, :expect), _, locs, _)
-                locs isa QuoteNode || return
-                union!(locations, collect(locs.value))
+            locs isa QuoteNode || return
+            union!(locations, collect(locs.value))
             @case _
-                nothing
+            nothing
         end
     end
     return length(locations)
 end
 
 function specialize_apply(reg_type, op_type, locs_type)
-    method = first(methods(Intrinsics.apply, Tuple{reg_type, op_type, locs_type}))
-    atypes = Tuple{typeof(Intrinsics.apply), reg_type, op_type, locs_type}
+    method = first(methods(Intrinsics.apply, Tuple{reg_type,op_type,locs_type}))
+    atypes = Tuple{typeof(Intrinsics.apply),reg_type,op_type,locs_type}
     return Core.Compiler.specialize_method(method, atypes, Core.svec())
 end
 
 function specialize_apply(reg_type, op_type, locs_type, ctrl_type)
-    method = first(methods(Intrinsics.apply, Tuple{reg_type, op_type, locs_type, ctrl_type}))
-    atypes = Tuple{typeof(Intrinsics.apply), reg_type, op_type, locs_type, ctrl_type}
+    method = first(methods(Intrinsics.apply, Tuple{reg_type,op_type,locs_type,ctrl_type}))
+    atypes = Tuple{typeof(Intrinsics.apply),reg_type,op_type,locs_type,ctrl_type}
     return Core.Compiler.specialize_method(method, atypes, Core.svec())
 end

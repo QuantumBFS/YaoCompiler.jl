@@ -15,9 +15,8 @@ using YaoArrayRegister
     1 => X
 end
 
-interp = YaoInterpreter(;options=HardwareFreeOptions(;
-        clifford_simplification=true, phase_teleportation=false
-    )
+interp = YaoInterpreter(;
+    options = HardwareFreeOptions(; clifford_simplification = true, phase_teleportation = false),
 )
 
 ir, = code_typed(Intrinsics.apply, (AnyReg, typeof(test_a())); interp)[1]
@@ -112,15 +111,18 @@ ir, = code_typed(Intrinsics.apply, (AnyReg, typeof(test_cir())); interp)[1]
 r = rand_state(5)
 cir = test_cir()
 target_f = YaoCompiler.compile(
-    JLEmulationTarget(), Intrinsics.apply, Tuple{typeof(r),typeof(cir)},
-    HardwareFreeOptions(
-        clifford_simplification=false, phase_teleportation=false,
-    )
+    JLEmulationTarget(),
+    Intrinsics.apply,
+    Tuple{typeof(r),typeof(cir)},
+    HardwareFreeOptions(clifford_simplification = false, phase_teleportation = false),
 )
 
-test_f = YaoCompiler.compile(JLEmulationTarget(), Intrinsics.apply, Tuple{typeof(r),typeof(cir)}, HardwareFreeOptions(
-    clifford_simplification=true, phase_teleportation=true,
-))
+test_f = YaoCompiler.compile(
+    JLEmulationTarget(),
+    Intrinsics.apply,
+    Tuple{typeof(r),typeof(cir)},
+    HardwareFreeOptions(clifford_simplification = true, phase_teleportation = true),
+)
 
 r = rand_state(5)
 target_r = copy(r)
