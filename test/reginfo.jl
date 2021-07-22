@@ -8,7 +8,7 @@ using YaoTargetQASM
 using CompilerPluginTools
 using Test
 
-@operation function test_basic(theta, phi)
+@device function test_basic(theta, phi)
     # syntax sugar
     1 => X
     @gate 2 => Z
@@ -22,7 +22,7 @@ using Test
     return (a = a, b = c)
 end
 
-@operation function test_pure_quantum()
+@device function test_pure_quantum()
     ret = @gate 1:4 => test_basic(1.0, 2.0)
     @ctrl 2 1 => Rx(2.2)
     return ret

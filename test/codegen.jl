@@ -7,7 +7,7 @@ using YaoTargetQASM
 using YaoTargetQASM.QASM
 using Test
 
-@operation function test_basic(theta, phi)
+@device function test_basic(theta, phi)
     # syntax sugar
     1 => X
     2 => Z
@@ -25,7 +25,7 @@ using Test
     return (a = a, b = c)
 end
 
-@operation function test_pure_quantum()
+@device function test_pure_quantum()
     ret = @gate 1:4 => test_basic(1.0, π)
     @barrier 1:4
     @ctrl 2 1 => X
@@ -59,7 +59,7 @@ CX qreg_2[0], qreg_1[0];
 target_qasm = OpenQASM.parse(s)
 @test test_qasm ≈ target_qasm
 
-@operation function test_gate(theta, phi)
+@device function test_gate(theta, phi)
     1 => X
     2 => Z
     4 => Rx(-sin(theta)+2)

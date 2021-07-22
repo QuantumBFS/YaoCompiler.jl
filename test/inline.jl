@@ -56,7 +56,7 @@ gate majority a,b,c
 
 ast = code_qasm(typeof(majority()))
 
-@operation function test_inline()
+@device function test_inline()
     1:3 => ccx()
 end
 
