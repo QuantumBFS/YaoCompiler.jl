@@ -10,7 +10,7 @@ using YaoHIR
 using ZXCalculus
 using YaoArrayRegister
 
-@operation function test_a()
+@device function test_a()
     1 => X
     1 => X
 end
@@ -26,7 +26,7 @@ ir, = code_typed(Intrinsics.apply, (AnyReg, typeof(test_a())); interp)[1]
     Expr(:invoke, _, apply, _, &(QuoteNode(H)), &(QuoteNode(Locations(1))))::Nothing
 end
 
-@operation function test_b()
+@device function test_b()
     1 => Rx(2.0)
     1 => Rz(3.0)
 end
@@ -40,7 +40,7 @@ ir, = code_typed(Intrinsics.apply, (AnyReg, typeof(test_b())); interp)[1]
     Expr(:invoke, _, apply, _, &(QuoteNode(Rz(3.0))), &(QuoteNode(Locations(1))))::Nothing
 end
 
-@operation function test_cir()
+@device function test_cir()
     5 => H
     @ctrl 4 5 => X
     5 => shift(7 / 4 * π)

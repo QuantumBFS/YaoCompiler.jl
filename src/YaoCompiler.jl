@@ -1,6 +1,6 @@
 module YaoCompiler
 
-export @operation,
+export @device,
     @gate,
     @ctrl,
     @measure,

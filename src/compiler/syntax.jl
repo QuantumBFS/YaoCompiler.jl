@@ -4,11 +4,11 @@ xctrl_locations(ex) = Expr(:call, :($YaoLocations.CtrlLocations), ex)
 """
     @gate <locs> => <gate>
 
-Syntax sugar for `apply(gate, locs)`, must be used inside `@operation`.
-See also [`@operation`](@ref).
+Syntax sugar for `apply(gate, locs)`, must be used inside `@device`.
+See also [`@device`](@ref).
 
 !!! tips
-    You don't have to write `@gate` in most cases inside `@operation`.
+    You don't have to write `@gate` in most cases inside `@device`.
     But in case there is ambuigity, you can annotate the expression
     with `@gate` explicitly.
 """
@@ -22,8 +22,8 @@ end
 """
     @ctrl <ctrl_locs> <locs> => <gate>
 
-Syntax sugar for `apply(gate, locs, ctrl_locs)`, must be used inside `@operation`.
-See also [`@operation`](@ref).
+Syntax sugar for `apply(gate, locs, ctrl_locs)`, must be used inside `@device`.
+See also [`@device`](@ref).
 """
 macro ctrl(ctrl_locs, ex::Expr)
     @match ex begin
@@ -53,12 +53,12 @@ macro barrier(locs)
 end
 
 """
-    @operation <function def>
+    @device <function def>
 
-Annotate a Julia function as YaoLang operation kernel.
+Annotate a Julia function as YaoLang device kernel.
 """
-macro operation(ex)
-    esc(operation_m(__module__, ex))
+macro device(ex)
+    esc(device_m(__module__, ex))
 end
 
 """
@@ -71,7 +71,7 @@ on them directly.
 """
 function routine_stub end
 
-function operation_m(mod::Module, ex)
+function device_m(mod::Module, ex)
     is_function(ex) || error("expect a function definition")
     jlfn = JLFunction(ex)
     isnothing(jlfn.kwargs) || error("kwargs is not supported")
@@ -86,7 +86,7 @@ function codegen_routine(jlfn::JLFunction)
 
     return quote
         $(codegen_routine_type(jlfn, typename))
-        $(codegen_operation(jlfn, typename))
+        $(codegen_device(jlfn, typename))
         $(codegen_inference_limit_heuristics(jlfn, typename))
         $(codegen_routine_stub(jlfn, typename))
         $(codegen_binding(jlfn, typename))
@@ -112,7 +112,7 @@ function codegen_binding(def::JLFunction, typename)
     end
 end
 
-function codegen_operation(def::JLFunction, typename)
+function codegen_device(def::JLFunction, typename)
     self = gensym(:self)
     args = name_only.(def.args)
 
@@ -207,17 +207,17 @@ function transpile_gate_syntax(ex)
         :($locs => $gate) => xcall(GlobalRef(Intrinsics, :apply), gate, xlocations(locs))
         # this will appear in anonymous function definition
         # TODO: disambuigity this and function contains only single line
-        # @operation function circuit(theta, phi)
+        # @device function circuit(theta, phi)
         #     1 => X
         # end
         # Expr(:block, stmt1, line::LineNumberNode, stmt2) => ex
-        Expr(:macrocall, Symbol("@operation"), _...) => error("syntax: cannot have nested @operation")
+        Expr(:macrocall, Symbol("@device"), _...) => error("syntax: cannot have nested @device")
         Expr(:macrocall, name, args...) => begin
             if is_syntax_macro(name)
                 return ex
             else
                 # we force top scope locs=>gate to be treated as gate stmt inside
-                # all @operation region including non-YaoCompiler macros to make things
+                # all @device region including non-YaoCompiler macros to make things
                 # like @inbounds etc. work
                 return Expr(:macrocall, name, map(transpile_gate_syntax, args)...)
             end
@@ -239,8 +239,8 @@ end
     ci, nargs = obtain_codeinfo(op)
     new = NewCodeInfo(ci)
     register = insert!(new.slots, 2, Symbol("#register#"))
-    operation = insert!(new.slots, 3, Symbol("#op#"))
-    unpack_operation!(new, operation, nargs)
+    device = insert!(new.slots, 3, Symbol("#op#"))
+    unpack_device!(new, device, nargs)
     for (v, stmt) in new
         @switch stmt begin
             @case Expr(:call, GlobalRef(&Intrinsics, name), args...)
@@ -278,9 +278,9 @@ end
     ci, nargs = obtain_codeinfo(op)
     new = NewCodeInfo(ci)
     register = insert!(new.slots, 2, Symbol("#register#"))
-    operation = insert!(new.slots, 3, Symbol("#op#"))
+    device = insert!(new.slots, 3, Symbol("#op#"))
     glob_locs = insert!(new.slots, 4, Symbol("#locs#"))
-    unpack_operation!(new, operation, nargs)
+    unpack_device!(new, device, nargs)
 
     for (v, stmt) in new
         _update_slot_stmt(new, v, stmt) do stmt
@@ -327,10 +327,10 @@ end
     ci, nargs = obtain_codeinfo(op)
     new = NewCodeInfo(ci)
     register = insert!(new.slots, 2, Symbol("#register#"))
-    operation = insert!(new.slots, 3, Symbol("#op#"))
+    device = insert!(new.slots, 3, Symbol("#op#"))
     glob_locs = insert!(new.slots, 4, Symbol("#locs#"))
     glob_ctrl = insert!(new.slots, 5, Symbol("#ctrl#"))
-    unpack_operation!(new, operation, nargs)
+    unpack_device!(new, device, nargs)
 
     for (v, stmt) in new
         _update_slot_stmt(new, v, stmt) do stmt
@@ -398,7 +398,7 @@ function obtain_codeinfo(::Type{Operation{P,Args}}) where {P,Args}
     return ci, nargs
 end
 
-function unpack_operation!(new::NewCodeInfo, op::NewSlotNumber, nargs::Int)
+function unpack_device!(new::NewCodeInfo, op::NewSlotNumber, nargs::Int)
     # %parent = op.parent
     parent = push!(new, Expr(:call, GlobalRef(Base, :getfield), op, QuoteNode(:parent)))
 

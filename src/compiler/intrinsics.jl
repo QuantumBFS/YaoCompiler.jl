@@ -16,7 +16,7 @@ export main, apply, measure, barrier, expect
 @intrinsic_stub device expect(r::AbstractRegister, ::Locations, nshots::Int)
 
 # this is just for doing overlay since we don't
-# have explicit register semantic inside @operation
+# have explicit register semantic inside @device
 @intrinsic_stub device apply(gate::Routine)
 @intrinsic_stub device apply(gate::Routine, ::Locations)
 @intrinsic_stub device apply(gate::Routine, ::Locations, ::CtrlLocations)

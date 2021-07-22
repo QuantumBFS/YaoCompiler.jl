@@ -78,7 +78,7 @@ end
 end
 
 @noinline function measure_cmp(lhs, rhs)
-    throw(IntrinsicError("cannot compare measurement result outside @operation"))
+    throw(IntrinsicError("cannot compare measurement result outside @device"))
 end
 
 # struct Chain
