@@ -14,6 +14,7 @@ using YaoCompiler.Intrinsics
 using YaoCompiler: YaoCompileTarget
 using Core: CodeInfo
 using YaoLocations: plain
+using OpenQASM.Types: UGate
 
 export OpenQASMTarget, RegInfo, code_qasm, QASM, @qasm_str
 
