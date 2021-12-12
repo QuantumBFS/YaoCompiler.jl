@@ -1,0 +1,28 @@
+name = "YaoTargetQobj"
+uuid = "be2ed200-ac97-4d62-828c-ed82e987dbf4"
+authors = ["Roger-Luo <rogerluo.rl18@gmail.com> and contributors"]
+version = "0.2.1"
+
+[deps]
+CompilerPluginTools = "6b7a57c9-7cc1-4fdf-b7f5-e857abae3638"
+Configurations = "5218b696-f38b-4ac9-8b61-a12ec717816d"
+IBMQClient = "02860bad-daa6-4506-8736-4a3616c18085"
+MLStyle = "d8e11817-5142-5d16-987a-aa16d5891078"
+UUIDs = "cf7118a7-6976-5b1a-9a39-7adc72f591a4"
+YaoCompiler = "b3514fdc-7bcc-425b-920a-42c43c8eb4b4"
+YaoLocations = "66df03fb-d475-48f7-b449-3d9064bf085b"
+
+[compat]
+CompilerPluginTools = "0.1"
+Configurations = "0.15, 0.16"
+IBMQClient = "0.3"
+MLStyle = "0.4"
+YaoCompiler = "0.2"
+YaoLocations = "0.1"
+julia = "1.6"
+
+[extras]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[targets]
+test = ["Test"]
